@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "py-artest"
+version = "0.1.2rc1"
+description = "description"
+authors = ["Chou Hung-Yi <hychou.svm@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/HYChou0515/py-artest"
+homepage = "https://github.com/HYChou0515/py-artest"
+keywords = ["regression-test"]
+packages = [
+    { include = "artest" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9"
+dill = "^0.3.6"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+pytest = "^7.3.2"
+isort = "^5.12.0"
+autoflake = "^2.1.1"
+toml = "^0.10.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
