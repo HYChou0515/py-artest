@@ -1,0 +1,39 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Python package
+
+on:
+  push:
+    branches: [ "test-ci" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v3
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+        poetry install --with dev
+    - name: Make Build
+      run: |
+        . $(poetry show -v | head -1 | cut -d' ' -f3 | xargs -I{} ls "{}/bin/activate")
+        echo PATH=$PATH >> $GITHUB_ENV
+        which python
+        which black
+        which isort
+        python -c "import black; print(black.__version__)"
+        make build
