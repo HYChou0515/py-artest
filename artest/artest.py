@@ -1,12 +1,16 @@
 import hashlib
 import inspect
 import os
+import warnings
 from functools import wraps
 from glob import glob
 
-import dill
-
-from .config import test_case_id_generator
+from artest.config import (
+    get_assert_pickled_object_on_case_mode,
+    get_on_pickle_dump_error,
+    get_pickler,
+    test_case_id_generator,
+)
 
 ARTEST_ROOT = "./.artest"
 
@@ -18,15 +22,25 @@ def get_artest_mode():
 class TestCaseSerializer:
     @staticmethod
     def dump(obj, fp):
-        dill.dump(obj, fp)
+        pickler = get_pickler()
+        try:
+            pickler.dump(obj, fp)
+        except Exception as e:
+            action = get_on_pickle_dump_error(e)
+            if action == "ignore":
+                return
+            if action == "raise":
+                raise e
+            if action == "warning":
+                warnings.warn(str(e))
 
     @staticmethod
     def dumps(obj):
-        return dill.dumps(obj)
+        return get_pickler().dumps(obj)
 
     @staticmethod
     def load(fp):
-        return dill.load(fp)
+        return get_pickler().load(fp)
 
     def save(self, obj, path):
         dirpath = os.path.dirname(path)
@@ -116,6 +130,9 @@ def autoreg(func_id: str):
             serializer.save_func(func, f_func)
             ret = func(*args, **kwargs)
             serializer.save(ret, f_outputs)
+            if get_assert_pickled_object_on_case_mode():
+                ret_saved = serializer.read(f_outputs)
+                assert serializer.dumps(ret) == serializer.dumps(ret_saved)
             test_stack.pop()
             return ret
 
