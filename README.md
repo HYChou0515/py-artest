@@ -11,6 +11,22 @@ you can rely on the previously generated test cases to ensure that everything co
 👌 This approach safeguards the stability and dependability of 
 your program by preventing unexpected issues and accidental breakdowns. 🚀
 
+## Installation
+
+You can install Artest using pip:
+
+```bash
+pip install py-artest
+```
+
+This will install Artest and its dependencies. 
+Optionally, if you require the 'dill' package for additional functionality, 
+you can install it as follows:
+
+```bash
+pip install py-artest[dill]
+```
+
 ## Advantages 
 
 
@@ -92,9 +108,28 @@ if __name__ == "__main__":
     # Output: hello world!
 ```
 
-In the updated code, the to_whom function has been decorated with automock using the unique identifier "35988d25". This allows Artest to automatically generate a mock for the to_whom function. Inside the mock, the choices variable is typically defined in the test case rather than being fetched from the database, ensuring faster and more controlled testing.
+In the updated code, the to_whom function has been decorated with automock 
+using the unique identifier "35988d25". 
+This allows Artest to automatically generate a mock for the to_whom function. 
+Inside the mock, the choices variable is typically defined in the test case 
+rather than being fetched from the database, 
+ensuring faster and more controlled testing.
 
 When running the program, the output remains the same: "hello world!".
 
 
+## Test with artest
 
+Once artest is installed, you can run it in test mode using the command:
+
+```bash
+python -m artest
+```
+
+This command executes artest in test mode, 
+allowing the framework to manage and execute the defined test cases 
+based on the configured environment. 
+Running artest in test mode enables the verification and 
+validation of your program's behavior against the predefined test cases, 
+ensuring that the functionality operates as expected 
+and remains stable even after modifications.
