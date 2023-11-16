@@ -13,7 +13,7 @@ from tests.helper import (
 
 def gen():
     while True:
-        yield f"temp-test"
+        yield "temp-test"
 
 
 gen1, gen2 = itertools.tee(gen(), 2)

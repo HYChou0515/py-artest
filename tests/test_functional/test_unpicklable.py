@@ -3,10 +3,11 @@ from pickle import PicklingError
 
 import pytest
 
-from artest import autoreg, set_pickler
+from artest import autoreg
 from artest.config import (
     set_assert_pickled_object_on_case_mode,
     set_on_pickle_dump_error,
+    set_pickler,
     set_test_case_id_generator,
 )
 from tests.helper import make_test_autoreg
@@ -14,7 +15,7 @@ from tests.helper import make_test_autoreg
 
 def gen():
     while True:
-        yield f"temp-test"
+        yield "temp-test"
 
 
 gen1, gen2 = itertools.tee(gen(), 2)
