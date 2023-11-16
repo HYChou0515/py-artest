@@ -4,8 +4,6 @@ import os
 from functools import wraps
 from glob import glob
 
-import dill
-
 from .config import test_case_id_generator
 
 ARTEST_ROOT = "./.artest"
@@ -15,18 +13,40 @@ def get_artest_mode():
     return os.environ.get("ARTEST_MODE", "disable")
 
 
+_pickler = None
+
+
+def set_pickler(pickler):
+    global _pickler
+    _pickler = pickler
+
+
+def get_pickler():
+    global _pickler
+    if _pickler is None:
+        try:
+            import dill
+
+            _pickler = dill
+        except ImportError:
+            import pickle
+
+            _pickler = pickle
+    return _pickler
+
+
 class TestCaseSerializer:
     @staticmethod
     def dump(obj, fp):
-        dill.dump(obj, fp)
+        get_pickler().dump(obj, fp)
 
     @staticmethod
     def dumps(obj):
-        return dill.dumps(obj)
+        return get_pickler().dumps(obj)
 
     @staticmethod
     def load(fp):
-        return dill.load(fp)
+        return get_pickler().load(fp)
 
     def save(self, obj, path):
         dirpath = os.path.dirname(path)
