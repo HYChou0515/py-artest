@@ -6,15 +6,19 @@ from artest import automock, autoreg
 from artest.config import set_test_case_id_generator
 from tests.helper import (
     assert_test_case_files_exist,
-    cleanup_test_case_files,
+    get_call_time,
+    make_cleanup_file,
+    make_cleanup_test_case_files,
     make_test_autoreg,
-    pop_all_from_list,
+    set_call_time,
 )
+
+_tcid = "temp-test"
 
 
 def gen():
     while True:
-        yield "temp-test"
+        yield _tcid
 
 
 gen1, gen2 = itertools.tee(gen(), 2)
@@ -24,13 +28,10 @@ set_test_case_id_generator(gen1)
 hello_id = "9cf9f5e5035e48c883374959379d0229"
 mock_id = "327d0c57c4574d229c3c3a7e6c29cf49"
 
-hello_call_time = []
-mock_call_time = []
-
 
 @autoreg(hello_id)
 def hello(say, to):
-    hello_call_time.append(1)
+    set_call_time(hello_id, get_call_time(hello_id) + 1)
     y = the_mock(io.StringIO("apple "))
     return f"{say} {to} {y}!"
 
@@ -39,28 +40,30 @@ def hello(say, to):
 def the_mock(iox):
     iox.seek(0)
     x = iox.read()
-    mock_call_time.append(1)
+    set_call_time(mock_id, get_call_time(mock_id) + 1)
     return x * 3
 
 
 @make_test_autoreg()
+@make_cleanup_test_case_files(hello_id, _tcid)
+@make_cleanup_file(f"./{hello_id}.calltime.pkl")
+@make_cleanup_file(f"./{mock_id}.calltime.pkl")
 def test_filelike():
-    pop_all_from_list(hello_call_time)
-    pop_all_from_list(mock_call_time)
+    set_call_time(hello_id, 0)
+    set_call_time(mock_id, 0)
 
     tcid = next(gen2)
 
     hello("Hello", "World")
-    assert len(hello_call_time) == 1  # directly called
-    assert len(mock_call_time) == 1  # called once by hello
+    assert get_call_time(hello_id) == 1  # directly called
+    assert get_call_time(mock_id) == 1  # called once by hello
 
     assert_test_case_files_exist(hello_id, tcid)
 
-    pop_all_from_list(hello_call_time)
-    pop_all_from_list(mock_call_time)
+    set_call_time(hello_id, 0)
+    set_call_time(mock_id, 0)
 
     artest.artest.main()
 
-    assert len(hello_call_time) == 1  # directly called
-    assert len(mock_call_time) == 0  # mocked by artest, should not be called
-    cleanup_test_case_files(hello_id, tcid)
+    assert get_call_time(hello_id) == 1  # directly called
+    assert get_call_time(mock_id) == 0  # mocked by artest, should not be called

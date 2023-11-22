@@ -1,0 +1,8 @@
+from artest import autoreg
+
+hello_id = "85cad84c3c154e5c947e16cf435986c5"
+
+
+@autoreg(hello_id, on_duplicate="ignore")
+def hello(say, to):
+    return f"{say} {to}! This is a different string."

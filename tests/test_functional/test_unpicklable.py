@@ -12,10 +12,12 @@ from artest.config import (
 )
 from tests.helper import make_test_autoreg
 
+_tcid = "temp-test"
+
 
 def gen():
     while True:
-        yield "temp-test"
+        yield _tcid
 
 
 gen1, gen2 = itertools.tee(gen(), 2)
