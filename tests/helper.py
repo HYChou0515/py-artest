@@ -149,3 +149,23 @@ def make_test_autoreg():
         return wrapper
 
     return decorator
+
+
+def make_callback(callback):
+    """Decorator factory to set the test mode for automatic regression tests.
+
+    Returns:
+        function: Decorator function.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                func(*args, **kwargs)
+            finally:
+                callback()
+
+        return wrapper
+
+    return decorator

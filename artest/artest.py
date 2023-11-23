@@ -18,6 +18,7 @@ from typing import Literal, NamedTuple
 from artest.config import (
     get_assert_pickled_object_on_case_mode,
     get_function_root_path,
+    get_is_equal,
     get_on_pickle_dump_error,
     get_pickler,
     test_case_id_generator,
@@ -581,7 +582,7 @@ def main():
         except Exception as e:
             info_test_result(False, f"Exception {e} raised.")
             continue
-        if ret != outputs:
+        if not get_is_equal()(ret, outputs):
             info_test_result(False, "Outputs not matched.")
             continue
         info_test_result(True)
