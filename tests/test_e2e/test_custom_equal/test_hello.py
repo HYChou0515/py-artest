@@ -3,14 +3,9 @@ import os
 import shutil
 
 import artest.artest
-from artest.config import (
-    set_function_root_path,
-    set_is_equal,
-    set_test_case_id_generator,
-)
+from artest.config import set_is_equal, set_test_case_id_generator
 from tests.helper import (
     assert_test_case_files_exist,
-    get_test_root_path,
     make_callback,
     make_cleanup_file,
     make_cleanup_test_case_files,
@@ -30,7 +25,6 @@ def gen():
 gen1, gen2 = itertools.tee(gen(), 2)
 
 set_test_case_id_generator(gen1)
-set_function_root_path(get_test_root_path())
 
 dirname = os.path.dirname(__file__)
 

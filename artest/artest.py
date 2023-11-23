@@ -79,21 +79,15 @@ class _FunctionIdRepository(MutableMapping):
                 global _overload_on_duplicate
                 root_path = get_function_root_path()
                 for python_path in sys.path:
-                    print(python_path, root_path)
-
                     python_path = os.path.abspath(python_path)
-                    if root_path is None:
-                        pass
-                    elif not (
+                    if not (
                         python_path.startswith(root_path)
                         or root_path.startswith(python_path)
                     ):
                         continue
 
                     for fname in glob(f"{python_path}/**/*.py", recursive=True):
-                        if root_path is None:
-                            pass
-                        elif not fname.startswith(root_path):
+                        if not fname.startswith(root_path):
                             continue
                         with open(fname, "r") as f:
                             source = f.read()

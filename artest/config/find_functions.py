@@ -28,4 +28,6 @@ def get_function_root_path():
         str: The root path of the function.
     """
     global _function_root_path
+    if _function_root_path is None:
+        return os.getcwd()
     return _function_root_path
