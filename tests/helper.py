@@ -18,6 +18,15 @@ from contextlib import contextmanager
 from functools import wraps
 
 
+def get_test_root_path():
+    """Gets the root path of the function.
+
+    Returns:
+        str: The root path of the function.
+    """
+    return os.path.abspath(os.path.dirname(__file__))
+
+
 def pop_all_from_list(lst):
     """Clears all elements from a list.
 
