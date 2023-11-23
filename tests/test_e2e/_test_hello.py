@@ -3,7 +3,7 @@ import os
 import shutil
 
 import artest.artest
-from artest.config import set_test_case_id_generator
+from artest.config import set_function_root_path, set_test_case_id_generator
 from tests.helper import (
     assert_test_case_files_exist,
     cleanup_test_case_files,
@@ -19,6 +19,7 @@ def gen():
 gen1, gen2 = itertools.tee(gen(), 2)
 
 set_test_case_id_generator(gen1)
+set_function_root_path(os.path.dirname(__file__))
 
 dirname = os.path.dirname(__file__)
 
@@ -28,14 +29,14 @@ def test_change_should_fail():
     tcid = next(gen2)
 
     shutil.copy(f"{dirname}/hello.py.before", f"{dirname}/hello.py")
-    from hello import hello, hello_id  # noqa: E402
+    from .hello import hello, hello_id  # noqa: E402
 
     hello("Hello", "World")
 
     assert_test_case_files_exist(hello_id, tcid)
 
     shutil.copy(f"{dirname}/hello.py.after", f"{dirname}/hello.py")
-    from hello import hello  # noqa: E402
+    from .hello import hello  # noqa: E402
 
     results = artest.artest.main()
     assert len(results) == 1

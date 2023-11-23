@@ -8,6 +8,7 @@ import hashlib
 import importlib
 import inspect
 import os
+import sys
 import warnings
 from collections.abc import MutableMapping
 from functools import wraps
@@ -16,6 +17,7 @@ from typing import Literal, NamedTuple
 
 from artest.config import (
     get_assert_pickled_object_on_case_mode,
+    get_function_root_path,
     get_on_pickle_dump_error,
     get_pickler,
     test_case_id_generator,
@@ -70,37 +72,60 @@ class _FunctionIdRepository(MutableMapping):
         self.store = dict()
 
     def __getitem__(self, key):
-        global _overload_on_duplicate
-
         if key not in self.store:
-            for python_path in os.environ.get("PYTHONPATH", "").split(":"):
-                for fname in glob(f"{python_path}/**/*.py", recursive=True):
-                    with open(fname, "r") as f:
-                        source = f.read()
-                    artest_functions = get_artest_decorators(
-                        source, target_is_source=True
-                    )
-                    if not artest_functions:
+
+            def find_func():
+                global _overload_on_duplicate
+                root_path = get_function_root_path()
+                for python_path in sys.path:
+                    python_path = os.path.abspath(python_path)
+                    if root_path is None:
+                        pass
+                    elif not (
+                        python_path.startswith(root_path)
+                        or root_path.startswith(python_path)
+                    ):
                         continue
-                    _default_on_duplicate_bk = _overload_on_duplicate
-                    _overload_on_duplicate = "ignore"
-                    relpath = os.path.relpath(fname, python_path)
-                    mod = importlib.import_module(relpath.replace("/", ".")[:-3])
-                    # reload module seems to be a must when
-                    # we try to mimic file change.
-                    mod = importlib.reload(mod)
-                    _overload_on_duplicate = _default_on_duplicate_bk
-                    for class_name, func_name in artest_functions:
-                        if class_name is None:
-                            func = getattr(mod, func_name, None)
-                            if func is not None and func.__artest_func_id__ == key:
-                                self.store[key] = func
-                        else:
-                            cls = getattr(mod, class_name, None)
-                            if cls is not None:
-                                func = getattr(cls, func_name, None)
+
+                    for fname in glob(f"{python_path}/**/*.py", recursive=True):
+                        if root_path is None:
+                            pass
+                        elif not fname.startswith(root_path):
+                            continue
+                        with open(fname, "r") as f:
+                            source = f.read()
+                        artest_functions = get_artest_decorators(
+                            source, target_is_source=True
+                        )
+                        if not artest_functions:
+                            continue
+                        _default_on_duplicate_bk = _overload_on_duplicate
+                        _overload_on_duplicate = "ignore"
+                        relpath = os.path.relpath(fname, python_path)
+                        mod = importlib.import_module(relpath.replace("/", ".")[:-3])
+                        # reload module seems to be a must when
+                        # we try to mimic file change.
+                        mod = importlib.reload(mod)
+                        _overload_on_duplicate = _default_on_duplicate_bk
+                        for class_name, func_name in artest_functions:
+                            if class_name is None:
+                                func = getattr(mod, func_name, None)
                                 if func is not None and func.__artest_func_id__ == key:
-                                    self.store[key] = func
+                                    return func
+                            else:
+                                cls = getattr(mod, class_name, None)
+                                if cls is not None:
+                                    func = getattr(cls, func_name, None)
+                                    if (
+                                        func is not None
+                                        and func.__artest_func_id__ == key
+                                    ):
+                                        return func
+                return None
+
+            func = find_func()
+            if func is not None:
+                self.store[key] = func
         return self.store[key]
 
     def __setitem__(self, key, value):

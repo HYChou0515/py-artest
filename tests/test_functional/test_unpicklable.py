@@ -1,4 +1,5 @@
 import itertools
+import os
 from pickle import PicklingError
 
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from artest import autoreg
 from artest.config import (
     set_assert_pickled_object_on_case_mode,
+    set_function_root_path,
     set_on_pickle_dump_error,
     set_pickler,
     set_test_case_id_generator,
@@ -23,6 +25,7 @@ def gen():
 gen1, gen2 = itertools.tee(gen(), 2)
 
 set_test_case_id_generator(gen1)
+set_function_root_path(os.path.dirname(__file__))
 
 func_id = "d1ca94d298f849bdadb10dd80bb99a0b"
 

@@ -1,8 +1,9 @@
 import itertools
+import os
 
 import artest.artest
 from artest import automock, autoreg
-from artest.config import set_test_case_id_generator
+from artest.config import set_function_root_path, set_test_case_id_generator
 from tests.helper import (
     assert_test_case_files_exist,
     get_call_time,
@@ -23,6 +24,7 @@ def gen():
 gen1, gen2 = itertools.tee(gen(), 2)
 
 set_test_case_id_generator(gen1)
+set_function_root_path(os.path.dirname(__file__))
 
 hello_id = "a5f4cb0ffd914782b35988d25523734b"
 mock_id = "b7e21c5a7dcf4ccb96eb37e1bbfe2c28"
