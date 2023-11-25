@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "py-artest"
-version = "0.2.0"
+version = "0.2.1"
 description = "Automated Regression Testing Framework for Python"
 authors = ["Chou Hung-Yi <hychou.svm@gmail.com>"]
 license = "MIT"

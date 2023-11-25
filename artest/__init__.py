@@ -9,10 +9,10 @@ Public Objects:
     - autoreg: Decorator for creating regression tests during runtime.
     - automock: Decorator for automatic mocking during test execution.
 
-Version: 0.2.0
+Version: 0.2.1
 """
 
 __all__ = ["autoreg", "automock"]
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 from .artest import automock, autoreg
