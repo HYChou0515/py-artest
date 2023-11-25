@@ -1,6 +1,5 @@
 import itertools
 import os
-import shutil
 
 import artest.artest
 from artest.config import (
@@ -17,7 +16,10 @@ from tests.helper import (
     make_test_autoreg,
 )
 
-from .hello_id import hello_id
+hello1_id = "90fa3b3b15544f0dbbb6000d6aa64d5a"
+hello2_id = "2aa3d51500af47b69971ec5b2e66d532"
+hello3_id = "1e6e0865a7e54d358b0b149351a24212"
+
 
 _tcid = "temp-test"
 
@@ -59,9 +61,17 @@ def custom_stringify_obj(obj):
 dirname = os.path.dirname(__file__)
 
 
+def copy_with_different_id(input_file, output_file, id):
+    with open(input_file, "r") as f:
+        lines = f.readlines()
+    with open(output_file, "w") as f:
+        for line in lines:
+            f.write(line.replace("{{place_holder_id}}", f'"{id}"'))
+
+
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello_id, _tcid)
-@make_cleanup_file(f"{dirname}/hello.py")
+@make_cleanup_test_case_files(hello1_id, _tcid)
+@make_cleanup_file(f"{dirname}/hello1.py")
 @make_callback(lambda: set_message_formatter(None))
 @make_callback(lambda: set_printer(None))
 @make_callback(lambda: _message.clear())
@@ -70,31 +80,36 @@ def test_custom_message_formatter():
     set_message_formatter(custom_message_formatter)
     tcid = next(gen2)
 
-    shutil.copy(f"{dirname}/hello.py.before", f"{dirname}/hello.py")
-    from .hello import hello  # noqa: E402
+    copy_with_different_id(
+        f"{dirname}/hello.py.before", f"{dirname}/hello1.py", hello1_id
+    )
+
+    from .hello1 import hello  # noqa: E402
 
     hello("Hello", "World")
 
-    assert_test_case_files_exist(hello_id, tcid)
+    assert_test_case_files_exist(hello1_id, tcid)
 
-    shutil.copy(f"{dirname}/hello.py.after", f"{dirname}/hello.py")
+    copy_with_different_id(
+        f"{dirname}/hello.py.after", f"{dirname}/hello1.py", hello1_id
+    )
 
     results = artest.artest.main()
     assert len(results) == 1
-    assert results[0].fcid == hello_id
+    assert results[0].fcid == hello1_id
     assert results[0].tcid == tcid
     assert not results[0].is_success
 
     assert len(_message) == 2
     assert (
         _message[0]
-        == f"custom: FAIL       fc={hello_id} tc=temp-test msg=Outputs not matched."
+        == f"custom: FAIL       fc={hello1_id} tc=temp-test msg=Outputs not matched."
     )
     assert _message[1] == "Failed (0/1)"
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello_id, _tcid)
+@make_cleanup_test_case_files(hello2_id, _tcid)
 @make_cleanup_file(f"{dirname}/hello2.py")
 @make_callback(lambda: set_stringify_obj(None))
 @make_callback(lambda: set_printer(None))
@@ -104,24 +119,64 @@ def test_custom_stringify_obj():
     set_stringify_obj(custom_stringify_obj)
     tcid = next(gen2)
 
-    shutil.copy(f"{dirname}/hello.py.before", f"{dirname}/hello2.py")
+    copy_with_different_id(
+        f"{dirname}/hello.py.before", f"{dirname}/hello2.py", hello2_id
+    )
     from .hello2 import hello  # noqa: E402
 
     hello("Hello", "World")
 
-    assert_test_case_files_exist(hello_id, tcid)
+    assert_test_case_files_exist(hello2_id, tcid)
 
-    shutil.copy(f"{dirname}/hello.py.after", f"{dirname}/hello2.py")
+    copy_with_different_id(
+        f"{dirname}/hello.py.after", f"{dirname}/hello2.py", hello2_id
+    )
 
     results = artest.artest.main()
     assert len(results) == 1
-    assert results[0].fcid == hello_id
+    assert results[0].fcid == hello2_id
     assert results[0].tcid == tcid
     assert not results[0].is_success
 
     assert len(_message) == 2
     assert (
         _message[0]
-        == f"ARTEST: FAIL       fc={hello_id} tc=temp-test msg=Outputs not matched. expected: return [Hello World!] actual: return [Hello World! This is a different string.]"
+        == f"ARTEST: FAIL       fc={hello2_id} tc=temp-test msg=Outputs not matched. expected: return [Hello World!] actual: return [Hello World! This is a different string.]"
+    )
+    assert _message[1] == "Failed (0/1)"
+
+
+@make_test_autoreg()
+@make_cleanup_test_case_files(hello3_id, _tcid)
+@make_cleanup_file(f"{dirname}/hello3.py")
+@make_callback(lambda: set_printer(None))
+@make_callback(lambda: _message.clear())
+def test_default_stringify_obj():
+    set_printer(custom_printer)
+    tcid = next(gen2)
+
+    copy_with_different_id(
+        f"{dirname}/hello.py.before", f"{dirname}/hello3.py", hello3_id
+    )
+    from .hello3 import hello  # noqa: E402
+
+    hello("Hello", "World")
+
+    assert_test_case_files_exist(hello3_id, tcid)
+
+    copy_with_different_id(
+        f"{dirname}/hello.py.after2", f"{dirname}/hello3.py", hello3_id
+    )
+
+    results = artest.artest.main()
+    assert len(results) == 1
+    assert results[0].fcid == hello3_id
+    assert results[0].tcid == tcid
+    assert not results[0].is_success
+
+    assert len(_message) == 2
+    assert (
+        _message[0]
+        == f"ARTEST: FAIL       fc={hello3_id} tc=temp-test msg=Output type mismatch: raise != return expected: return 'Hello World!' actual: raise ValueError('This should not be called')"
     )
     assert _message[1] == "Failed (0/1)"
