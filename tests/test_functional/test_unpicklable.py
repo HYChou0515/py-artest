@@ -10,12 +10,14 @@ from artest.config import (
     set_pickler,
     set_test_case_id_generator,
 )
-from tests.helper import make_test_autoreg
+from tests.helper import make_cleanup_test_case_files, make_test_autoreg
+
+_tcid = "temp-test"
 
 
 def gen():
     while True:
-        yield "temp-test"
+        yield _tcid
 
 
 gen1, gen2 = itertools.tee(gen(), 2)
@@ -31,6 +33,7 @@ def returns_some_lambda(n):
 
 
 @make_test_autoreg()
+@make_cleanup_test_case_files(func_id, _tcid)
 def test_standard_pickle_unpicklable():
     import pickle
 
@@ -45,6 +48,7 @@ def test_standard_pickle_unpicklable():
 
 
 @make_test_autoreg()
+@make_cleanup_test_case_files(func_id, _tcid)
 def test_good_when_serialize_bad_when_deserialize():
     import dill
 
