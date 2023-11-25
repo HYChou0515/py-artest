@@ -1,6 +1,12 @@
 """ARTEST: Automatic Regression Testing.
 
 This module provides decorators and utilities for automatic regression testing.
+
+Functions:
+    autoreg: Auto Regression Test Decorator.
+    automock: Automock Decorator.
+    main: Execute Automated Regression Testing.
+
 """
 
 import ast
@@ -149,7 +155,7 @@ class _FunctionIdRepository(MutableMapping):
 _func_id_repo = _FunctionIdRepository()
 
 
-def get_artest_mode():
+def _get_artest_mode():
     """Get the current artest mode.
 
     Returns:
@@ -158,7 +164,7 @@ def get_artest_mode():
     return os.environ.get("ARTEST_MODE", "disable")
 
 
-class TestCaseSerializer:
+class _TestCaseSerializer:
     """Handles serialization and deserialization of test case objects."""
 
     @staticmethod
@@ -274,15 +280,20 @@ class TestCaseSerializer:
         return func
 
     def calc_hash(self, obj):
-        """Calculate the SHA256 hash of a serialized object.
+        """Calculate a short hash of an object.
+
+        This is used to generate a unique identifier an input.
 
         Args:
             obj: The object to calculate the hash for.
 
         Returns:
-            str: SHA256 hash string.
+            str: the hash string.
         """
         return hashlib.sha256(self.dumps(obj)).hexdigest()[10:20]
+
+
+_serializer = _TestCaseSerializer()
 
 
 def _build_path(fcid, tcid, basename):
@@ -301,6 +312,29 @@ def _get_func_output(func, args, kwargs):
     except Exception as e:
         outputs = FunctionOutput("raise", e)
     return outputs
+
+
+def _find_class(func):
+    import sys
+
+    cls = sys.modules.get(func.__module__)
+    if cls is None:
+        return None
+    for name in func.__qualname__.split(".")[:-1]:
+        cls = getattr(cls, name)
+    if not inspect.isclass(cls):
+        return None
+    return cls
+
+
+def _find_input_hash(func, args, kwargs):
+    cls = _find_class(func)
+    arguments = inspect.getcallargs(func, *args, **kwargs)
+    if cls is not None:
+        if "self" in arguments:
+            del arguments["self"]
+    input_hash = _serializer.calc_hash(arguments)
+    return input_hash
 
 
 def autoreg(
@@ -352,8 +386,6 @@ def autoreg(
     else:
         AUTOREG_REGISTERED.add(func_id)
 
-    serializer = TestCaseSerializer()
-
     def _autoreg(func):
         func.__artest_func_id__ = func_id
 
@@ -367,17 +399,17 @@ def autoreg(
             f_outputs = _build_path(func_id, tcid, "outputs")
             f_func = _build_path(func_id, tcid, "func")
             if inspect.ismethod(func):
-                serializer.save_inputs(((func.__self__,) + args, kwargs), f_inputs)
-                serializer.save_func(func.__func__, f_func)
+                _serializer.save_inputs(((func.__self__,) + args, kwargs), f_inputs)
+                _serializer.save_func(func.__func__, f_func)
             else:
-                serializer.save_inputs((args, kwargs), f_inputs)
-                serializer.save_func(func, f_func)
+                _serializer.save_inputs((args, kwargs), f_inputs)
+                _serializer.save_func(func, f_func)
 
             output = _get_func_output(func, args, kwargs)
-            serializer.save(output, f_outputs)
+            _serializer.save(output, f_outputs)
             if get_assert_pickled_object_on_case_mode():
-                output_saved = serializer.read(f_outputs)
-                assert serializer.dumps(output) == serializer.dumps(output_saved)
+                output_saved = _serializer.read(f_outputs)
+                assert _serializer.dumps(output) == _serializer.dumps(output_saved)
             test_stack.pop()
             if output.output_type == "raise":
                 raise output.output
@@ -388,7 +420,7 @@ def autoreg(
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            artest_mode = get_artest_mode()
+            artest_mode = _get_artest_mode()
             if artest_mode == "disable":
                 return disable_mode(*args, **kwargs)
             elif artest_mode == "case":
@@ -431,8 +463,6 @@ def automock(
     else:
         AUTOMOCK_REGISTERED.add(func_id)
 
-    serializer = TestCaseSerializer()
-
     def _automock(func):
         """Internal function within the automock decorator."""
 
@@ -443,31 +473,14 @@ def automock(
             """Generates the basename for mock output files."""
             return os.path.join("mock", f"{func_id}.{call_count}.{input_hash}.output")
 
-        def _findclass(func):
-            import sys
-
-            cls = sys.modules.get(func.__module__)
-            if cls is None:
-                return None
-            for name in func.__qualname__.split(".")[:-1]:
-                cls = getattr(cls, name)
-            if not inspect.isclass(cls):
-                return None
-            return cls
-
         def case_mode(*args, **kwargs):
             """Handles the functionality under 'Case Mode'."""
-            cls = _findclass(func)
-            arguments = inspect.getcallargs(func, *args, **kwargs)
-            if cls is not None:
-                if "self" in arguments:
-                    del arguments["self"]
-            input_hash = serializer.calc_hash(arguments)
+            input_hash = _find_input_hash(func, args, kwargs)
             output = _get_func_output(func, args, kwargs)
             for caller_fcid, tcid in test_stack:
                 call_count = _mock_counter.get((func_id, caller_fcid, tcid), 0)
                 _mock_counter[(func_id, caller_fcid, tcid)] = call_count + 1
-                serializer.save(
+                _serializer.save(
                     output,
                     _build_path(
                         caller_fcid,
@@ -487,12 +500,7 @@ def automock(
             call_count = _mock_counter.get((func_id, caller_fcid, tcid), 0)
             _mock_counter[(func_id, caller_fcid, tcid)] = call_count + 1
 
-            cls = _findclass(func)
-            arguments = inspect.getcallargs(func, *args, **kwargs)
-            if cls is not None:
-                if "self" in arguments:
-                    del arguments["self"]
-            input_hash = serializer.calc_hash(arguments)
+            input_hash = _find_input_hash(func, args, kwargs)
             path = _build_path(
                 caller_fcid,
                 tcid,
@@ -500,7 +508,7 @@ def automock(
             )
             if not os.path.exists(path):
                 raise ValueError(f"Mock file missing: {path}")
-            output: FunctionOutput = serializer.read(path)
+            output: FunctionOutput = _serializer.read(path)
             if output.output_type == "raise":
                 raise output.output
             return output.output
@@ -508,7 +516,7 @@ def automock(
         @wraps(func)
         def wrapper(*args, **kwargs):
             """Wrapper function determining the behavior based on artest_mode."""
-            artest_mode = get_artest_mode()
+            artest_mode = _get_artest_mode()
             if artest_mode == "disable":
                 return disable_mode(*args, **kwargs)
             elif artest_mode == "case":
@@ -557,7 +565,6 @@ def main():
 
     """
     _mock_counter.clear()
-    serializer = TestCaseSerializer()
     orig_artest_mode = os.environ.get("ARTEST_MODE", None)
     os.environ["ARTEST_MODE"] = "test"
 
@@ -584,17 +591,17 @@ def main():
         f_outputs = _build_path(fcid, tcid, "outputs")
         f_func = _build_path(fcid, tcid, "func")
         if os.path.exists(f_inputs):
-            args, kwargs = serializer.read_inputs(f_inputs)
+            args, kwargs = _serializer.read_inputs(f_inputs)
         else:
             info_test_result(False, f"Inputs file {f_inputs} not found.")
             continue
         if os.path.exists(f_outputs):
-            expected_outputs: FunctionOutput = serializer.read(f_outputs)
+            expected_outputs: FunctionOutput = _serializer.read(f_outputs)
         else:
             info_test_result(False, f"Outputs file {f_outputs} not found.")
             continue
         if os.path.exists(f_func):
-            func = serializer.read_func(f_func)
+            func = _serializer.read_func(f_func)
         else:
             info_test_result(False, f"Func file {f_func} not found.")
             continue
