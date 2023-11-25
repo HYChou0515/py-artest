@@ -19,8 +19,9 @@ import warnings
 from collections.abc import MutableMapping
 from functools import wraps
 from glob import glob
-from typing import Literal, NamedTuple
+from typing import Literal
 
+from artest._schema import FunctionOutput, MessageRecord, TestResult
 from artest.config import (
     get_assert_pickled_object_on_case_mode,
     get_function_root_path,
@@ -29,17 +30,10 @@ from artest.config import (
     get_pickler,
     test_case_id_generator,
 )
+from artest.config.printer import get_message_formatter, get_printer
 
 ARTEST_ROOT = "./.artest"
 _overload_on_duplicate = None
-
-FunctionOutput = NamedTuple(
-    "FunctionOutput",
-    [
-        ("output_type", Literal["return", "raise"]),
-        ("output", object),
-    ],
-)
 
 
 def get_artest_decorators(target, *, target_is_source=False):
@@ -530,21 +524,6 @@ def automock(
     return _automock
 
 
-def _info(s="", *args, **kwargs):
-    print(f"ARTEST: {s}", *args, **kwargs)
-
-
-TestResult = NamedTuple(
-    "TestResult",
-    [
-        ("is_success", bool),
-        ("fcid", str),
-        ("tcid", str),
-        ("message", str),
-    ],
-)
-
-
 def main():
     """Execute Automated Regression Testing.
 
@@ -572,18 +551,28 @@ def main():
     for path in glob(os.path.join(ARTEST_ROOT, "*", "*")):
         fcid, tcid = path.split(os.path.sep)[-2:]
 
-        def info_test_result(is_success, message=""):
+        def info_test_result(
+            is_success,
+            message="",
+            _inputs=None,
+            _expected_outputs=None,
+            _actual_outputs=None,
+            _func=None,
+        ):
             test_results.append(TestResult(is_success, fcid, tcid, message))
-            s = []
-            if is_success:
-                s.append(f"{'SUCCESS':10s}")
-            else:
-                s.append(f"{'FAIL':10s}")
-            s.append(f"fc={fcid}")
-            s.append(f"tc={tcid}")
-            if message:
-                s.append(f"msg={message}")
-            _info(" ".join(s))
+            s = get_message_formatter()(
+                MessageRecord(
+                    is_success=is_success,
+                    fcid=fcid,
+                    tcid=tcid,
+                    message=message,
+                    inputs=_inputs,
+                    expected_outputs=_expected_outputs,
+                    actual_outputs=_actual_outputs,
+                    func=_func,
+                )
+            )
+            get_printer()(s)
 
         os.environ["__ARTEST_FCID"] = fcid
         os.environ["__ARTEST_TCID"] = tcid
@@ -612,12 +601,29 @@ def main():
             info_test_result(
                 False,
                 f"Output type mismatch: {actual_outputs.output_type} != {expected_outputs.output_type}",
+                _inputs=(args, kwargs),
+                _expected_outputs=expected_outputs,
+                _actual_outputs=actual_outputs,
+                _func=func,
             )
             continue
         if not get_is_equal()(actual_outputs.output, expected_outputs.output):
-            info_test_result(False, "Outputs not matched.")
+            info_test_result(
+                False,
+                "Outputs not matched.",
+                _inputs=(args, kwargs),
+                _expected_outputs=expected_outputs,
+                _actual_outputs=actual_outputs,
+                _func=func,
+            )
             continue
-        info_test_result(True)
+        info_test_result(
+            True,
+            _inputs=(args, kwargs),
+            _expected_outputs=expected_outputs,
+            _actual_outputs=actual_outputs,
+            _func=func,
+        )
 
     del os.environ["__ARTEST_FCID"]
     del os.environ["__ARTEST_TCID"]
@@ -625,6 +631,12 @@ def main():
     if orig_artest_mode is not None:
         os.environ["ARTEST_MODE"] = orig_artest_mode
 
+    if all([r.is_success for r in test_results]):
+        get_printer()(f"Passed ({len(test_results)}/{len(test_results)})")
+    else:
+        get_printer()(
+            f"Failed ({sum([r.is_success for r in test_results])}/{len(test_results)})"
+        )
     return test_results
 
 

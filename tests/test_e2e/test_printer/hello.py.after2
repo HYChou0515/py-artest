@@ -1,0 +1,7 @@
+from artest import autoreg
+
+
+@autoreg({{place_holder_id}}, on_duplicate="ignore")
+def hello(say, to):
+    raise ValueError("This should not be called")
+    return f"{say} {to}! This is a different string."

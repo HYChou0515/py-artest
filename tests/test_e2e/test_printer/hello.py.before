@@ -1,0 +1,6 @@
+from artest import autoreg
+
+
+@autoreg({{place_holder_id}}, on_duplicate="ignore")
+def hello(say, to):
+    return f"{say} {to}!"
