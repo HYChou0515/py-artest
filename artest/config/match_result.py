@@ -8,6 +8,8 @@ Functions and Classes:
 
 
 def _default_is_equal(actual, expected):
+    if isinstance(actual, Exception) and isinstance(expected, Exception):
+        return str(actual) == str(expected) and type(actual) == type(expected)
     return actual == expected
 
 

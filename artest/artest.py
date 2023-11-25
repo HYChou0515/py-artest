@@ -27,6 +27,14 @@ from artest.config import (
 ARTEST_ROOT = "./.artest"
 _overload_on_duplicate = None
 
+FunctionOutput = NamedTuple(
+    "FunctionOutput",
+    [
+        ("output_type", Literal["return", "raise"]),
+        ("output", object),
+    ],
+)
+
 
 def get_artest_decorators(target, *, target_is_source=False):
     """Get the decorators for a function.
@@ -286,6 +294,15 @@ AUTOMOCK_REGISTERED = set()
 test_stack = []
 
 
+def _get_func_output(func, args, kwargs):
+    try:
+        ret = func(*args, **kwargs)
+        outputs = FunctionOutput("return", ret)
+    except Exception as e:
+        outputs = FunctionOutput("raise", e)
+    return outputs
+
+
 def autoreg(
     func_id: str, *, on_duplicate: Literal["raise", "replace", "ignore"] = "raise"
 ):
@@ -355,13 +372,16 @@ def autoreg(
             else:
                 serializer.save_inputs((args, kwargs), f_inputs)
                 serializer.save_func(func, f_func)
-            ret = func(*args, **kwargs)
-            serializer.save(ret, f_outputs)
+
+            output = _get_func_output(func, args, kwargs)
+            serializer.save(output, f_outputs)
             if get_assert_pickled_object_on_case_mode():
-                ret_saved = serializer.read(f_outputs)
-                assert serializer.dumps(ret) == serializer.dumps(ret_saved)
+                output_saved = serializer.read(f_outputs)
+                assert serializer.dumps(output) == serializer.dumps(output_saved)
             test_stack.pop()
-            return ret
+            if output.output_type == "raise":
+                raise output.output
+            return output.output
 
         def test_mode(*args, **kwargs):
             return func(*args, **kwargs)
@@ -441,19 +461,21 @@ def automock(
                 if "self" in arguments:
                     del arguments["self"]
             input_hash = serializer.calc_hash(arguments)
-            result = func(*args, **kwargs)
+            output = _get_func_output(func, args, kwargs)
             for caller_fcid, tcid in test_stack:
                 call_count = counts.get((caller_fcid, tcid), 0)
                 counts[(caller_fcid, tcid)] = call_count + 1
                 serializer.save(
-                    result,
+                    output,
                     _build_path(
                         caller_fcid,
                         tcid,
                         _basename(func_id, call_count, input_hash),
                     ),
                 )
-            return result
+            if output.output_type == "raise":
+                raise output.output
+            return output.output
 
         def test_mode(*args, **kwargs):
             """Handles the functionality under 'Test Mode'."""
@@ -476,8 +498,10 @@ def automock(
             )
             if not os.path.exists(path):
                 raise ValueError(f"Mock file missing: {path}")
-            result = serializer.read(path)
-            return result
+            output: FunctionOutput = serializer.read(path)
+            if output.output_type == "raise":
+                raise output.output
+            return output.output
 
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -562,7 +586,7 @@ def main():
             info_test_result(False, f"Inputs file {f_inputs} not found.")
             continue
         if os.path.exists(f_outputs):
-            outputs = serializer.read(f_outputs)
+            expected_outputs: FunctionOutput = serializer.read(f_outputs)
         else:
             info_test_result(False, f"Outputs file {f_outputs} not found.")
             continue
@@ -571,12 +595,16 @@ def main():
         else:
             info_test_result(False, f"Func file {f_func} not found.")
             continue
-        try:
-            ret = func(*args, **kwargs)
-        except Exception as e:
-            info_test_result(False, f"Exception {e} raised.")
+
+        actual_outputs = _get_func_output(func, args, kwargs)
+
+        if actual_outputs.output_type != expected_outputs.output_type:
+            info_test_result(
+                False,
+                f"Output type mismatch: {actual_outputs.output_type} != {expected_outputs.output_type}",
+            )
             continue
-        if not get_is_equal()(ret, outputs):
+        if not get_is_equal()(actual_outputs.output, expected_outputs.output):
             info_test_result(False, "Outputs not matched.")
             continue
         info_test_result(True)
