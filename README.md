@@ -27,6 +27,14 @@ you can install it as follows:
 pip install py-artest[dill]
 ```
 
+## Tutorial
+
+You can find a detailed tutorial on how to use Artest in the following articles:
+
+- [Simplifying Regression Testing in Python with PyArtest’s Decorators](https://hychou-svm.medium.com/simplifying-regression-testing-in-python-with-pyartests-decorators-f18b33eacb04)
+- [Gist Sample Code](https://gist.github.com/HYChou0515/2fbed4f4aa9f57a9344ffbeb2326b121)
+
+
 ## Advantages 
 
 
@@ -133,3 +141,4 @@ Running artest in test mode enables the verification and
 validation of your program's behavior against the predefined test cases, 
 ensuring that the functionality operates as expected 
 and remains stable even after modifications.
+
