@@ -402,6 +402,9 @@ def autoreg(
     return _autoreg
 
 
+_mock_counter = {}
+
+
 def automock(
     func_id: str, *, on_duplicate: Literal["raise", "replace", "ignore"] = "raise"
 ):
@@ -429,7 +432,6 @@ def automock(
         AUTOMOCK_REGISTERED.add(func_id)
 
     serializer = TestCaseSerializer()
-    counts = {}
 
     def _automock(func):
         """Internal function within the automock decorator."""
@@ -463,8 +465,8 @@ def automock(
             input_hash = serializer.calc_hash(arguments)
             output = _get_func_output(func, args, kwargs)
             for caller_fcid, tcid in test_stack:
-                call_count = counts.get((caller_fcid, tcid), 0)
-                counts[(caller_fcid, tcid)] = call_count + 1
+                call_count = _mock_counter.get((func_id, caller_fcid, tcid), 0)
+                _mock_counter[(func_id, caller_fcid, tcid)] = call_count + 1
                 serializer.save(
                     output,
                     _build_path(
@@ -482,8 +484,8 @@ def automock(
             caller_fcid = os.environ["__ARTEST_FCID"]
             tcid = os.environ["__ARTEST_TCID"]
 
-            call_count = counts.get((caller_fcid, tcid), 0)
-            counts[(caller_fcid, tcid)] = call_count + 1
+            call_count = _mock_counter.get((func_id, caller_fcid, tcid), 0)
+            _mock_counter[(func_id, caller_fcid, tcid)] = call_count + 1
 
             cls = _findclass(func)
             arguments = inspect.getcallargs(func, *args, **kwargs)
@@ -554,6 +556,7 @@ def main():
                     Or if an exception occurs during function execution.
 
     """
+    _mock_counter.clear()
     serializer = TestCaseSerializer()
     orig_artest_mode = os.environ.get("ARTEST_MODE", None)
     os.environ["ARTEST_MODE"] = "test"

@@ -76,7 +76,13 @@ def test_recursive():
     set_call_time(hello_id, 0)
     set_call_time(mock_id, 0)
 
-    artest.artest.main()
+    test_results = artest.artest.main()
+
+    assert len(test_results) == 2
+    assert {tr.fcid for tr in test_results} == {hello_id, hello1_id}
+    assert {tr.tcid for tr in test_results} == {tcid}
+    assert {tr.is_success for tr in test_results} == {True}
+
     assert get_call_time(hello_id) == 1  # directly called
     assert get_call_time(hello1_id) == 2  # directly called + called once by hello
     assert get_call_time(mock_id) == 0  # mocked by artest, should not be called
