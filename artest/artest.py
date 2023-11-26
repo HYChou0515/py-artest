@@ -85,58 +85,54 @@ class _FunctionIdRepository(MutableMapping):
         self.store = dict()
 
     def __getitem__(self, key):
-        if key not in self.store:
+        if key in self.store:
+            return self.store[key]
 
-            def find_func():
-                root_path = get_function_root_path()
-                for python_path in sys.path:
-                    python_path = os.path.abspath(python_path)
-                    if not (
-                        python_path.startswith(root_path)
-                        or root_path.startswith(python_path)
-                    ):
+        def find_func():
+            root_path = get_function_root_path()
+            for python_path in sys.path:
+                python_path = os.path.abspath(python_path)
+                if not (
+                    python_path.startswith(root_path)
+                    or root_path.startswith(python_path)
+                ):
+                    continue
+
+                for fname in glob(f"{python_path}/**/*.py", recursive=True):
+                    if not fname.startswith(root_path):
                         continue
-
-                    for fname in glob(f"{python_path}/**/*.py", recursive=True):
-                        if not fname.startswith(root_path):
-                            continue
-                        with open(fname, "r") as f:
-                            source = f.read()
-                        artest_functions = get_artest_decorators(
-                            source, target_is_source=True
-                        )
-                        if not artest_functions:
-                            continue
-                        overload_on_duplicate_reset_token = (
-                            _overload_on_duplicate_var.set("ignore")
-                        )
-                        relpath = os.path.relpath(fname, python_path)
-                        mod = importlib.import_module(relpath.replace("/", ".")[:-3])
-                        # reload module seems to be a must when
-                        # we try to mimic file change.
-                        mod = importlib.reload(mod)
-                        _overload_on_duplicate_var.reset(
-                            overload_on_duplicate_reset_token
-                        )
-                        for class_name, func_name in artest_functions:
-                            if class_name is None:
-                                func = getattr(mod, func_name, None)
+                    with open(fname, "r") as f:
+                        source = f.read()
+                    artest_functions = get_artest_decorators(
+                        source, target_is_source=True
+                    )
+                    if not artest_functions:
+                        continue
+                    overload_on_duplicate_reset_token = _overload_on_duplicate_var.set(
+                        "ignore"
+                    )
+                    relpath = os.path.relpath(fname, python_path)
+                    mod = importlib.import_module(relpath.replace("/", ".")[:-3])
+                    # reload module seems to be a must when
+                    # we try to mimic file change.
+                    mod = importlib.reload(mod)
+                    _overload_on_duplicate_var.reset(overload_on_duplicate_reset_token)
+                    for class_name, func_name in artest_functions:
+                        if class_name is None:
+                            func = getattr(mod, func_name, None)
+                            if func is not None and func.__artest_func_id__ == key:
+                                return func
+                        else:
+                            cls = getattr(mod, class_name, None)
+                            if cls is not None:
+                                func = getattr(cls, func_name, None)
                                 if func is not None and func.__artest_func_id__ == key:
                                     return func
-                            else:
-                                cls = getattr(mod, class_name, None)
-                                if cls is not None:
-                                    func = getattr(cls, func_name, None)
-                                    if (
-                                        func is not None
-                                        and func.__artest_func_id__ == key
-                                    ):
-                                        return func
-                return None
+            return None
 
-            func = find_func()
-            if func is not None:
-                self.store[key] = func
+        func = find_func()
+        if func is not None:
+            self.store[key] = func
         return self.store[key]
 
     def __setitem__(self, key, value):
@@ -302,9 +298,9 @@ def _build_path(fcid, tcid, basename):
     return os.path.join(ARTEST_ROOT, fcid, tcid, basename)
 
 
-AUTOREG_REGISTERED = set()
-AUTOMOCK_REGISTERED = set()
-test_stack = []
+_AUTOREG_REGISTERED = set()
+_AUTOMOCK_REGISTERED = set()
+_test_stack = []
 
 
 def _get_func_output(func, args, kwargs):
@@ -382,11 +378,11 @@ def autoreg(
     if _overload_on_duplicate_var.get() is not None:
         on_duplicate = _overload_on_duplicate_var.get()
     func_id = str(func_id)
-    if func_id in AUTOREG_REGISTERED:
+    if func_id in _AUTOREG_REGISTERED:
         if on_duplicate == "raise":
             raise ValueError(f"Function {func_id} is already registered in autoreg.")
     else:
-        AUTOREG_REGISTERED.add(func_id)
+        _AUTOREG_REGISTERED.add(func_id)
 
     def _autoreg(func):
         func.__artest_func_id__ = func_id
@@ -396,7 +392,7 @@ def autoreg(
 
         def case_mode(*args, **kwargs):
             tcid = next(test_case_id_generator)
-            test_stack.append((func_id, tcid))
+            _test_stack.append((func_id, tcid))
             f_inputs = _build_path(func_id, tcid, "inputs")
             f_outputs = _build_path(func_id, tcid, "outputs")
             f_func = _build_path(func_id, tcid, "func")
@@ -412,7 +408,7 @@ def autoreg(
             if get_assert_pickled_object_on_case_mode():
                 output_saved = _serializer.read(f_outputs)
                 assert _serializer.dumps(output) == _serializer.dumps(output_saved)
-            test_stack.pop()
+            _test_stack.pop()
             if output.output_type == "raise":
                 raise output.output
             return output.output
@@ -459,11 +455,11 @@ def automock(
     if _overload_on_duplicate_var.get() is not None:
         on_duplicate = _overload_on_duplicate_var.get()
     func_id = str(func_id)
-    if func_id in AUTOMOCK_REGISTERED:
+    if func_id in _AUTOMOCK_REGISTERED:
         if on_duplicate == "raise":
             raise ValueError(f"Function {func_id} is already registered in automock.")
     else:
-        AUTOMOCK_REGISTERED.add(func_id)
+        _AUTOMOCK_REGISTERED.add(func_id)
 
     def _automock(func):
         """Internal function within the automock decorator."""
@@ -479,7 +475,7 @@ def automock(
             """Handles the functionality under 'Case Mode'."""
             input_hash = _find_input_hash(func, args, kwargs)
             output = _get_func_output(func, args, kwargs)
-            for caller_fcid, tcid in test_stack:
+            for caller_fcid, tcid in _test_stack:
                 call_count = _mock_counter.get((func_id, caller_fcid, tcid), 0)
                 _mock_counter[(func_id, caller_fcid, tcid)] = call_count + 1
                 _serializer.save(
