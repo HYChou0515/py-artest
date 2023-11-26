@@ -21,15 +21,6 @@ from contextvars import ContextVar
 from functools import wraps
 from glob import glob
 
-from artest._schema import (
-    ArtestMode,
-    FunctionOutput,
-    FunctionOutputType,
-    MessageRecord,
-    OnFuncIdDuplicateAction,
-    OnPickleDumpErrorAction,
-    TestResult,
-)
 from artest.config import (
     get_assert_pickled_object_on_case_mode,
     get_function_root_path,
@@ -39,6 +30,15 @@ from artest.config import (
     test_case_id_generator,
 )
 from artest.config.printer import get_message_formatter, get_printer
+from artest.types import (
+    ArtestMode,
+    FunctionOutput,
+    FunctionOutputType,
+    MessageRecord,
+    OnFuncIdDuplicateAction,
+    OnPickleDumpErrorAction,
+    TestResult,
+)
 
 ARTEST_ROOT = "./.artest"
 _overload_on_duplicate_var = ContextVar("__ARTEST_ON_DUPLICATE__", default=None)

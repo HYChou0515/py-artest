@@ -10,7 +10,7 @@ Functions and Classes:
     - MessageRecord: Represents a message record.
 
 """
-from artest._schema import MessageRecord
+from artest.types import MessageRecord
 
 
 def _default_stringify_obj(obj):

@@ -17,7 +17,7 @@ import shutil
 from contextlib import contextmanager
 from functools import wraps
 
-from artest._schema import ArtestMode
+from artest.types import ArtestMode
 
 
 def get_test_root_path():

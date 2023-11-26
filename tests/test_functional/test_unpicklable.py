@@ -6,7 +6,6 @@ import pytest
 
 import artest
 from artest import autoreg
-from artest._schema import OnPickleDumpErrorAction
 from artest.config import (
     set_assert_pickled_object_on_case_mode,
     set_is_equal,
@@ -14,6 +13,7 @@ from artest.config import (
     set_pickler,
     set_test_case_id_generator,
 )
+from artest.types import OnPickleDumpErrorAction
 from tests.helper import (
     assert_test_case_files_exist,
     make_callback,

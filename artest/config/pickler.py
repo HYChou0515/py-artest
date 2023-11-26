@@ -18,7 +18,7 @@ Classes:
 from collections import OrderedDict
 from typing import NamedTuple, Union
 
-from artest._schema import OnPickleDumpErrorAction
+from artest.types import OnPickleDumpErrorAction
 
 _pickler = None
 

@@ -50,7 +50,7 @@ __all__ = [
     "MessageRecord",
 ]
 
-from .._schema import MessageRecord
+from ..types import MessageRecord
 from .find_functions import get_function_root_path, set_function_root_path
 from .id_generator import set_test_case_id_generator, test_case_id_generator
 from .match_result import get_is_equal, set_is_equal
