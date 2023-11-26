@@ -1,7 +1,7 @@
 all: build
 
 test:
-	pytest
+	pytest --cov-report html --cov=artest tests/
 
 build: style test
 	poetry build
