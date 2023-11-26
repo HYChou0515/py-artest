@@ -1,4 +1,20 @@
-"""Module for types definition."""
+"""Module for types definition.
+
+This module provides functionality for types definition.
+
+Classes:
+    - FunctionOutput: Represents the output of a function.
+    - TestResult: Represents the result of a test.
+    - MessageRecord: Represents a message record.
+
+Enums:
+    - OnPickleDumpErrorAction: Actions enums on pickle dump error.
+    - OnFuncIdDuplicateAction: Actions enums on function id duplicate.
+    - ArtestMode: Artest Modes.
+    - FunctionOutputType: Function output types.
+
+
+"""
 
 from dataclasses import dataclass
 from enum import Enum
