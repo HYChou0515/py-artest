@@ -17,6 +17,7 @@ import os
 import sys
 import warnings
 from collections.abc import MutableMapping
+from contextvars import ContextVar
 from functools import wraps
 from glob import glob
 from typing import Literal
@@ -34,6 +35,9 @@ from artest.config.printer import get_message_formatter, get_printer
 
 ARTEST_ROOT = "./.artest"
 _overload_on_duplicate = None
+_fcid_var = ContextVar("__ARTEST_FCID__")
+_tcid_var = ContextVar("__ARTEST_TCID__")
+_artest_mode_var = ContextVar("__ARTEST_MODE__", default="use_env")
 
 
 def get_artest_decorators(target, *, target_is_source=False):
@@ -155,7 +159,9 @@ def _get_artest_mode():
     Returns:
         str: The current artest mode.
     """
-    return os.environ.get("ARTEST_MODE", "disable")
+    if (_mode := _artest_mode_var.get()) == "use_env":
+        return os.environ.get("ARTEST_MODE", "disable")
+    return _mode
 
 
 class _TestCaseSerializer:
@@ -488,8 +494,8 @@ def automock(
 
         def test_mode(*args, **kwargs):
             """Handles the functionality under 'Test Mode'."""
-            caller_fcid = os.environ["__ARTEST_FCID"]
-            tcid = os.environ["__ARTEST_TCID"]
+            caller_fcid = _fcid_var.get()
+            tcid = _tcid_var.get()
 
             call_count = _mock_counter.get((func_id, caller_fcid, tcid), 0)
             _mock_counter[(func_id, caller_fcid, tcid)] = call_count + 1
@@ -544,8 +550,7 @@ def main():
 
     """
     _mock_counter.clear()
-    orig_artest_mode = os.environ.get("ARTEST_MODE", None)
-    os.environ["ARTEST_MODE"] = "test"
+    artest_mode_reset_token = _artest_mode_var.set("test")
 
     test_results = []
     for path in glob(os.path.join(ARTEST_ROOT, "*", "*")):
@@ -574,8 +579,8 @@ def main():
             )
             get_printer()(s)
 
-        os.environ["__ARTEST_FCID"] = fcid
-        os.environ["__ARTEST_TCID"] = tcid
+        fcid_reset_token = _fcid_var.set(fcid)
+        tcid_reset_token = _tcid_var.set(tcid)
         f_inputs = _build_path(fcid, tcid, "inputs")
         f_outputs = _build_path(fcid, tcid, "outputs")
         f_func = _build_path(fcid, tcid, "func")
@@ -625,11 +630,10 @@ def main():
             _func=func,
         )
 
-    del os.environ["__ARTEST_FCID"]
-    del os.environ["__ARTEST_TCID"]
-    del os.environ["ARTEST_MODE"]
-    if orig_artest_mode is not None:
-        os.environ["ARTEST_MODE"] = orig_artest_mode
+        _fcid_var.reset(fcid_reset_token)
+        _tcid_var.reset(tcid_reset_token)
+
+    _artest_mode_var.reset(artest_mode_reset_token)
 
     if all([r.is_success for r in test_results]):
         get_printer()(f"Passed ({len(test_results)}/{len(test_results)})")
