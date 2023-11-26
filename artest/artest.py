@@ -20,9 +20,16 @@ from collections.abc import MutableMapping
 from contextvars import ContextVar
 from functools import wraps
 from glob import glob
-from typing import Literal
 
-from artest._schema import FunctionOutput, MessageRecord, TestResult
+from artest._schema import (
+    ArtestMode,
+    FunctionOutput,
+    FunctionOutputType,
+    MessageRecord,
+    OnFuncIdDuplicateAction,
+    OnPickleDumpErrorAction,
+    TestResult,
+)
 from artest.config import (
     get_assert_pickled_object_on_case_mode,
     get_function_root_path,
@@ -37,7 +44,7 @@ ARTEST_ROOT = "./.artest"
 _overload_on_duplicate_var = ContextVar("__ARTEST_ON_DUPLICATE__", default=None)
 _fcid_var = ContextVar("__ARTEST_FCID__")
 _tcid_var = ContextVar("__ARTEST_TCID__")
-_artest_mode_var = ContextVar("__ARTEST_MODE__", default="use_env")
+_artest_mode_var = ContextVar("__ARTEST_MODE__", default=ArtestMode.USE_ENV)
 
 
 def get_artest_decorators(target, *, target_is_source=False):
@@ -109,7 +116,7 @@ class _FunctionIdRepository(MutableMapping):
                     if not artest_functions:
                         continue
                     overload_on_duplicate_reset_token = _overload_on_duplicate_var.set(
-                        "ignore"
+                        OnFuncIdDuplicateAction.IGNORE
                     )
                     relpath = os.path.relpath(fname, python_path)
                     mod = importlib.import_module(relpath.replace("/", ".")[:-3])
@@ -157,8 +164,9 @@ def _get_artest_mode():
     Returns:
         str: The current artest mode.
     """
-    if (_mode := _artest_mode_var.get()) == "use_env":
-        return os.environ.get("ARTEST_MODE", "disable")
+    if (_mode := _artest_mode_var.get()) == ArtestMode.USE_ENV:
+        env_artest_mode = os.environ.get("ARTEST_MODE", ArtestMode.DISABLE)
+        return ArtestMode(env_artest_mode)
     return _mode
 
 
@@ -178,11 +186,11 @@ class _TestCaseSerializer:
             pickler.dump(obj, fp)
         except Exception as e:
             action = get_on_pickle_dump_error(e)
-            if action == "ignore":
+            if action == OnPickleDumpErrorAction.IGNORE:
                 return
-            if action == "raise":
+            if action == OnPickleDumpErrorAction.RAISE:
                 raise e
-            if action == "warning":
+            if action == OnPickleDumpErrorAction.WARNING:
                 warnings.warn(str(e))
 
     @staticmethod
@@ -306,9 +314,9 @@ _test_stack = []
 def _get_func_output(func, args, kwargs):
     try:
         ret = func(*args, **kwargs)
-        outputs = FunctionOutput("return", ret)
+        outputs = FunctionOutput(FunctionOutputType.RETURN, ret)
     except Exception as e:
-        outputs = FunctionOutput("raise", e)
+        outputs = FunctionOutput(FunctionOutputType.RAISE, e)
     return outputs
 
 
@@ -336,7 +344,9 @@ def _find_input_hash(func, args, kwargs):
 
 
 def autoreg(
-    func_id: str, *, on_duplicate: Literal["raise", "replace", "ignore"] = "raise"
+    func_id: str,
+    *,
+    on_duplicate: OnFuncIdDuplicateAction = OnFuncIdDuplicateAction.RAISE,
 ):
     """Auto Regression Test Decorator.
 
@@ -379,7 +389,7 @@ def autoreg(
         on_duplicate = _overload_on_duplicate_var.get()
     func_id = str(func_id)
     if func_id in _AUTOREG_REGISTERED:
-        if on_duplicate == "raise":
+        if on_duplicate == OnFuncIdDuplicateAction.RAISE:
             raise ValueError(f"Function {func_id} is already registered in autoreg.")
     else:
         _AUTOREG_REGISTERED.add(func_id)
@@ -409,7 +419,7 @@ def autoreg(
                 output_saved = _serializer.read(f_outputs)
                 assert _serializer.dumps(output) == _serializer.dumps(output_saved)
             _test_stack.pop()
-            if output.output_type == "raise":
+            if output.output_type == FunctionOutputType.RAISE:
                 raise output.output
             return output.output
 
@@ -419,11 +429,11 @@ def autoreg(
         @wraps(func)
         def wrapper(*args, **kwargs):
             artest_mode = _get_artest_mode()
-            if artest_mode == "disable":
+            if artest_mode == ArtestMode.DISABLE:
                 return disable_mode(*args, **kwargs)
-            elif artest_mode == "case":
+            elif artest_mode == ArtestMode.CASE:
                 return case_mode(*args, **kwargs)
-            elif artest_mode == "test":
+            elif artest_mode == ArtestMode.TEST:
                 return test_mode(*args, **kwargs)
             raise ValueError(f"Unknown artest mode {artest_mode}")
 
@@ -436,7 +446,9 @@ _mock_counter = {}
 
 
 def automock(
-    func_id: str, *, on_duplicate: Literal["raise", "replace", "ignore"] = "raise"
+    func_id: str,
+    *,
+    on_duplicate: OnFuncIdDuplicateAction = OnFuncIdDuplicateAction.RAISE,
 ):
     """Automock Decorator.
 
@@ -456,7 +468,7 @@ def automock(
         on_duplicate = _overload_on_duplicate_var.get()
     func_id = str(func_id)
     if func_id in _AUTOMOCK_REGISTERED:
-        if on_duplicate == "raise":
+        if on_duplicate == OnFuncIdDuplicateAction.RAISE:
             raise ValueError(f"Function {func_id} is already registered in automock.")
     else:
         _AUTOMOCK_REGISTERED.add(func_id)
@@ -486,7 +498,7 @@ def automock(
                         _basename(func_id, call_count, input_hash),
                     ),
                 )
-            if output.output_type == "raise":
+            if output.output_type == FunctionOutputType.RAISE:
                 raise output.output
             return output.output
 
@@ -507,7 +519,7 @@ def automock(
             if not os.path.exists(path):
                 raise ValueError(f"Mock file missing: {path}")
             output: FunctionOutput = _serializer.read(path)
-            if output.output_type == "raise":
+            if output.output_type == FunctionOutputType.RAISE:
                 raise output.output
             return output.output
 
@@ -515,11 +527,11 @@ def automock(
         def wrapper(*args, **kwargs):
             """Wrapper function determining the behavior based on artest_mode."""
             artest_mode = _get_artest_mode()
-            if artest_mode == "disable":
+            if artest_mode == ArtestMode.DISABLE:
                 return disable_mode(*args, **kwargs)
-            elif artest_mode == "case":
+            elif artest_mode == ArtestMode.CASE:
                 return case_mode(*args, **kwargs)
-            elif artest_mode == "test":
+            elif artest_mode == ArtestMode.TEST:
                 return test_mode(*args, **kwargs)
             raise ValueError(f"Unknown artest mode {artest_mode}")
 
@@ -548,7 +560,7 @@ def main():
 
     """
     _mock_counter.clear()
-    artest_mode_reset_token = _artest_mode_var.set("test")
+    artest_mode_reset_token = _artest_mode_var.set(ArtestMode.TEST)
 
     test_results = []
     for path in glob(os.path.join(ARTEST_ROOT, "*", "*")):

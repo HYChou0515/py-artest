@@ -6,6 +6,7 @@ import pytest
 
 import artest
 from artest import autoreg
+from artest._schema import OnPickleDumpErrorAction
 from artest.config import (
     set_assert_pickled_object_on_case_mode,
     set_is_equal,
@@ -49,7 +50,7 @@ def test_standard_pickle_unpicklable():
 
     returns_some_lambda(5)
 
-    set_on_pickle_dump_error(PicklingError, "raise")
+    set_on_pickle_dump_error(PicklingError, OnPickleDumpErrorAction.RAISE)
     with pytest.raises(PicklingError) as exc_info:
         returns_some_lambda(5)
     assert "Can't pickle" in str(exc_info.value)
