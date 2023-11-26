@@ -22,6 +22,7 @@ from functools import wraps
 from glob import glob
 
 from artest.config import (
+    get_artest_root,
     get_assert_pickled_object_on_case_mode,
     get_function_root_path,
     get_is_equal,
@@ -40,7 +41,6 @@ from artest.types import (
     TestResult,
 )
 
-ARTEST_ROOT = "./.artest"
 _overload_on_duplicate_var = ContextVar("__ARTEST_ON_DUPLICATE__", default=None)
 _fcid_var = ContextVar("__ARTEST_FCID__")
 _tcid_var = ContextVar("__ARTEST_TCID__")
@@ -303,7 +303,7 @@ _serializer = _TestCaseSerializer()
 
 
 def _build_path(fcid, tcid, basename):
-    return os.path.join(ARTEST_ROOT, fcid, tcid, basename)
+    return os.path.join(get_artest_root(), fcid, tcid, basename)
 
 
 _AUTOREG_REGISTERED = set()
@@ -563,7 +563,7 @@ def main():
     artest_mode_reset_token = _artest_mode_var.set(ArtestMode.TEST)
 
     test_results = []
-    for path in glob(os.path.join(ARTEST_ROOT, "*", "*")):
+    for path in glob(os.path.join(get_artest_root(), "*", "*")):
         fcid, tcid = path.split(os.path.sep)[-2:]
 
         def info_test_result(
