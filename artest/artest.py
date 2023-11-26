@@ -34,7 +34,7 @@ from artest.config import (
 from artest.config.printer import get_message_formatter, get_printer
 
 ARTEST_ROOT = "./.artest"
-_overload_on_duplicate = None
+_overload_on_duplicate_var = ContextVar("__ARTEST_ON_DUPLICATE__", default=None)
 _fcid_var = ContextVar("__ARTEST_FCID__")
 _tcid_var = ContextVar("__ARTEST_TCID__")
 _artest_mode_var = ContextVar("__ARTEST_MODE__", default="use_env")
@@ -88,7 +88,6 @@ class _FunctionIdRepository(MutableMapping):
         if key not in self.store:
 
             def find_func():
-                global _overload_on_duplicate
                 root_path = get_function_root_path()
                 for python_path in sys.path:
                     python_path = os.path.abspath(python_path)
@@ -108,14 +107,17 @@ class _FunctionIdRepository(MutableMapping):
                         )
                         if not artest_functions:
                             continue
-                        _default_on_duplicate_bk = _overload_on_duplicate
-                        _overload_on_duplicate = "ignore"
+                        overload_on_duplicate_reset_token = (
+                            _overload_on_duplicate_var.set("ignore")
+                        )
                         relpath = os.path.relpath(fname, python_path)
                         mod = importlib.import_module(relpath.replace("/", ".")[:-3])
                         # reload module seems to be a must when
                         # we try to mimic file change.
                         mod = importlib.reload(mod)
-                        _overload_on_duplicate = _default_on_duplicate_bk
+                        _overload_on_duplicate_var.reset(
+                            overload_on_duplicate_reset_token
+                        )
                         for class_name, func_name in artest_functions:
                             if class_name is None:
                                 func = getattr(mod, func_name, None)
@@ -377,8 +379,8 @@ def autoreg(
     Raises:
         ValueError: If the provided function ID is already registered in autoreg.
     """
-    if _overload_on_duplicate is not None:
-        on_duplicate = _overload_on_duplicate
+    if _overload_on_duplicate_var.get() is not None:
+        on_duplicate = _overload_on_duplicate_var.get()
     func_id = str(func_id)
     if func_id in AUTOREG_REGISTERED:
         if on_duplicate == "raise":
@@ -454,8 +456,8 @@ def automock(
     Raises:
         ValueError: If the provided function ID is already registered in automock.
     """
-    if _overload_on_duplicate is not None:
-        on_duplicate = _overload_on_duplicate
+    if _overload_on_duplicate_var.get() is not None:
+        on_duplicate = _overload_on_duplicate_var.get()
     func_id = str(func_id)
     if func_id in AUTOMOCK_REGISTERED:
         if on_duplicate == "raise":
