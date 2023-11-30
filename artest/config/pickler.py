@@ -16,7 +16,9 @@ Classes:
 """
 
 from collections import OrderedDict
-from typing import Literal, NamedTuple, Union
+from typing import NamedTuple, Union
+
+from artest.types import OnPickleDumpErrorAction
 
 _pickler = None
 
@@ -28,13 +30,11 @@ class _PickleErrorMatcher(NamedTuple):
     message: Union[str, None]
 
 
-_PickleErrorAction = Literal["warning", "ignore", "raise"]
-
 _on_pickle_dump_error = OrderedDict(
     [
         (
             _PickleErrorMatcher(exception=TypeError, message="can't pickle"),
-            "warning",
+            OnPickleDumpErrorAction.WARNING,
         )
     ]
 )
@@ -71,7 +71,7 @@ def get_pickler():
     return _pickler
 
 
-def set_on_pickle_dump_error(exception, action: _PickleErrorAction, message=None):
+def set_on_pickle_dump_error(exception, action: OnPickleDumpErrorAction, message=None):
     """Sets the action to take on specific pickling errors.
 
     Args:
@@ -99,7 +99,7 @@ def set_on_pickle_dump_error(exception, action: _PickleErrorAction, message=None
         _on_pickle_dump_error[_PickleErrorMatcher(exception, message)] = action
 
 
-def get_on_pickle_dump_error(error) -> _PickleErrorAction:
+def get_on_pickle_dump_error(error) -> OnPickleDumpErrorAction:
     """Gets the action to take on a specific pickling error.
 
     Args:
@@ -113,7 +113,7 @@ def get_on_pickle_dump_error(error) -> _PickleErrorAction:
         if isinstance(error, matcher.exception):
             if matcher.message is None or matcher.message in str(error):
                 return action
-    return "warning"
+    return OnPickleDumpErrorAction.WARNING
 
 
 def set_assert_pickled_object_on_case_mode(assert_pickled_object_on_case_mode):

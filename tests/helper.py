@@ -17,6 +17,8 @@ import shutil
 from contextlib import contextmanager
 from functools import wraps
 
+from artest.types import ArtestMode
+
 
 def get_test_root_path():
     """Gets the root path of the function.
@@ -143,7 +145,7 @@ def make_test_autoreg():
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            with environ("ARTEST_MODE", "case"):
+            with environ("ARTEST_MODE", ArtestMode.CASE.value):
                 func(*args, **kwargs)
 
         return wrapper

@@ -17,12 +17,12 @@ import os
 import sys
 import warnings
 from collections.abc import MutableMapping
+from contextvars import ContextVar
 from functools import wraps
 from glob import glob
-from typing import Literal
 
-from artest._schema import FunctionOutput, MessageRecord, TestResult
 from artest.config import (
+    get_artest_root,
     get_assert_pickled_object_on_case_mode,
     get_function_root_path,
     get_is_equal,
@@ -31,9 +31,20 @@ from artest.config import (
     test_case_id_generator,
 )
 from artest.config.printer import get_message_formatter, get_printer
+from artest.types import (
+    ArtestMode,
+    FunctionOutput,
+    FunctionOutputType,
+    MessageRecord,
+    OnFuncIdDuplicateAction,
+    OnPickleDumpErrorAction,
+    TestResult,
+)
 
-ARTEST_ROOT = "./.artest"
-_overload_on_duplicate = None
+_overload_on_duplicate_var = ContextVar("__ARTEST_ON_DUPLICATE__", default=None)
+_fcid_var = ContextVar("__ARTEST_FCID__")
+_tcid_var = ContextVar("__ARTEST_TCID__")
+_artest_mode_var = ContextVar("__ARTEST_MODE__", default=ArtestMode.USE_ENV)
 
 
 def get_artest_decorators(target, *, target_is_source=False):
@@ -81,56 +92,54 @@ class _FunctionIdRepository(MutableMapping):
         self.store = dict()
 
     def __getitem__(self, key):
-        if key not in self.store:
+        if key in self.store:
+            return self.store[key]
 
-            def find_func():
-                global _overload_on_duplicate
-                root_path = get_function_root_path()
-                for python_path in sys.path:
-                    python_path = os.path.abspath(python_path)
-                    if not (
-                        python_path.startswith(root_path)
-                        or root_path.startswith(python_path)
-                    ):
+        def find_func():
+            root_path = get_function_root_path()
+            for python_path in sys.path:
+                python_path = os.path.abspath(python_path)
+                if not (
+                    python_path.startswith(root_path)
+                    or root_path.startswith(python_path)
+                ):
+                    continue
+
+                for fname in glob(f"{python_path}/**/*.py", recursive=True):
+                    if not fname.startswith(root_path):
                         continue
-
-                    for fname in glob(f"{python_path}/**/*.py", recursive=True):
-                        if not fname.startswith(root_path):
-                            continue
-                        with open(fname, "r") as f:
-                            source = f.read()
-                        artest_functions = get_artest_decorators(
-                            source, target_is_source=True
-                        )
-                        if not artest_functions:
-                            continue
-                        _default_on_duplicate_bk = _overload_on_duplicate
-                        _overload_on_duplicate = "ignore"
-                        relpath = os.path.relpath(fname, python_path)
-                        mod = importlib.import_module(relpath.replace("/", ".")[:-3])
-                        # reload module seems to be a must when
-                        # we try to mimic file change.
-                        mod = importlib.reload(mod)
-                        _overload_on_duplicate = _default_on_duplicate_bk
-                        for class_name, func_name in artest_functions:
-                            if class_name is None:
-                                func = getattr(mod, func_name, None)
+                    with open(fname, "r") as f:
+                        source = f.read()
+                    artest_functions = get_artest_decorators(
+                        source, target_is_source=True
+                    )
+                    if not artest_functions:
+                        continue
+                    overload_on_duplicate_reset_token = _overload_on_duplicate_var.set(
+                        OnFuncIdDuplicateAction.IGNORE
+                    )
+                    relpath = os.path.relpath(fname, python_path)
+                    mod = importlib.import_module(relpath.replace("/", ".")[:-3])
+                    # reload module seems to be a must when
+                    # we try to mimic file change.
+                    mod = importlib.reload(mod)
+                    _overload_on_duplicate_var.reset(overload_on_duplicate_reset_token)
+                    for class_name, func_name in artest_functions:
+                        if class_name is None:
+                            func = getattr(mod, func_name, None)
+                            if func is not None and func.__artest_func_id__ == key:
+                                return func
+                        else:
+                            cls = getattr(mod, class_name, None)
+                            if cls is not None:
+                                func = getattr(cls, func_name, None)
                                 if func is not None and func.__artest_func_id__ == key:
                                     return func
-                            else:
-                                cls = getattr(mod, class_name, None)
-                                if cls is not None:
-                                    func = getattr(cls, func_name, None)
-                                    if (
-                                        func is not None
-                                        and func.__artest_func_id__ == key
-                                    ):
-                                        return func
-                return None
+            return None
 
-            func = find_func()
-            if func is not None:
-                self.store[key] = func
+        func = find_func()
+        if func is not None:
+            self.store[key] = func
         return self.store[key]
 
     def __setitem__(self, key, value):
@@ -155,7 +164,10 @@ def _get_artest_mode():
     Returns:
         str: The current artest mode.
     """
-    return os.environ.get("ARTEST_MODE", "disable")
+    if (_mode := _artest_mode_var.get()) == ArtestMode.USE_ENV:
+        env_artest_mode = os.environ.get("ARTEST_MODE", ArtestMode.DISABLE)
+        return ArtestMode(env_artest_mode)
+    return _mode
 
 
 class _TestCaseSerializer:
@@ -174,11 +186,11 @@ class _TestCaseSerializer:
             pickler.dump(obj, fp)
         except Exception as e:
             action = get_on_pickle_dump_error(e)
-            if action == "ignore":
+            if action == OnPickleDumpErrorAction.IGNORE:
                 return
-            if action == "raise":
+            if action == OnPickleDumpErrorAction.RAISE:
                 raise e
-            if action == "warning":
+            if action == OnPickleDumpErrorAction.WARNING:
                 warnings.warn(str(e))
 
     @staticmethod
@@ -291,20 +303,20 @@ _serializer = _TestCaseSerializer()
 
 
 def _build_path(fcid, tcid, basename):
-    return os.path.join(ARTEST_ROOT, fcid, tcid, basename)
+    return os.path.join(get_artest_root(), fcid, tcid, basename)
 
 
-AUTOREG_REGISTERED = set()
-AUTOMOCK_REGISTERED = set()
-test_stack = []
+_AUTOREG_REGISTERED = set()
+_AUTOMOCK_REGISTERED = set()
+_test_stack = []
 
 
 def _get_func_output(func, args, kwargs):
     try:
         ret = func(*args, **kwargs)
-        outputs = FunctionOutput("return", ret)
+        outputs = FunctionOutput(FunctionOutputType.RETURN, ret)
     except Exception as e:
-        outputs = FunctionOutput("raise", e)
+        outputs = FunctionOutput(FunctionOutputType.RAISE, e)
     return outputs
 
 
@@ -332,7 +344,9 @@ def _find_input_hash(func, args, kwargs):
 
 
 def autoreg(
-    func_id: str, *, on_duplicate: Literal["raise", "replace", "ignore"] = "raise"
+    func_id: str,
+    *,
+    on_duplicate: OnFuncIdDuplicateAction = OnFuncIdDuplicateAction.RAISE,
 ):
     """Auto Regression Test Decorator.
 
@@ -371,14 +385,14 @@ def autoreg(
     Raises:
         ValueError: If the provided function ID is already registered in autoreg.
     """
-    if _overload_on_duplicate is not None:
-        on_duplicate = _overload_on_duplicate
+    if _overload_on_duplicate_var.get() is not None:
+        on_duplicate = _overload_on_duplicate_var.get()
     func_id = str(func_id)
-    if func_id in AUTOREG_REGISTERED:
-        if on_duplicate == "raise":
+    if func_id in _AUTOREG_REGISTERED:
+        if on_duplicate == OnFuncIdDuplicateAction.RAISE:
             raise ValueError(f"Function {func_id} is already registered in autoreg.")
     else:
-        AUTOREG_REGISTERED.add(func_id)
+        _AUTOREG_REGISTERED.add(func_id)
 
     def _autoreg(func):
         func.__artest_func_id__ = func_id
@@ -388,7 +402,7 @@ def autoreg(
 
         def case_mode(*args, **kwargs):
             tcid = next(test_case_id_generator)
-            test_stack.append((func_id, tcid))
+            _test_stack.append((func_id, tcid))
             f_inputs = _build_path(func_id, tcid, "inputs")
             f_outputs = _build_path(func_id, tcid, "outputs")
             f_func = _build_path(func_id, tcid, "func")
@@ -404,8 +418,8 @@ def autoreg(
             if get_assert_pickled_object_on_case_mode():
                 output_saved = _serializer.read(f_outputs)
                 assert _serializer.dumps(output) == _serializer.dumps(output_saved)
-            test_stack.pop()
-            if output.output_type == "raise":
+            _test_stack.pop()
+            if output.output_type == FunctionOutputType.RAISE:
                 raise output.output
             return output.output
 
@@ -415,11 +429,11 @@ def autoreg(
         @wraps(func)
         def wrapper(*args, **kwargs):
             artest_mode = _get_artest_mode()
-            if artest_mode == "disable":
+            if artest_mode == ArtestMode.DISABLE:
                 return disable_mode(*args, **kwargs)
-            elif artest_mode == "case":
+            elif artest_mode == ArtestMode.CASE:
                 return case_mode(*args, **kwargs)
-            elif artest_mode == "test":
+            elif artest_mode == ArtestMode.TEST:
                 return test_mode(*args, **kwargs)
             raise ValueError(f"Unknown artest mode {artest_mode}")
 
@@ -432,7 +446,9 @@ _mock_counter = {}
 
 
 def automock(
-    func_id: str, *, on_duplicate: Literal["raise", "replace", "ignore"] = "raise"
+    func_id: str,
+    *,
+    on_duplicate: OnFuncIdDuplicateAction = OnFuncIdDuplicateAction.RAISE,
 ):
     """Automock Decorator.
 
@@ -448,14 +464,14 @@ def automock(
     Raises:
         ValueError: If the provided function ID is already registered in automock.
     """
-    if _overload_on_duplicate is not None:
-        on_duplicate = _overload_on_duplicate
+    if _overload_on_duplicate_var.get() is not None:
+        on_duplicate = _overload_on_duplicate_var.get()
     func_id = str(func_id)
-    if func_id in AUTOMOCK_REGISTERED:
-        if on_duplicate == "raise":
+    if func_id in _AUTOMOCK_REGISTERED:
+        if on_duplicate == OnFuncIdDuplicateAction.RAISE:
             raise ValueError(f"Function {func_id} is already registered in automock.")
     else:
-        AUTOMOCK_REGISTERED.add(func_id)
+        _AUTOMOCK_REGISTERED.add(func_id)
 
     def _automock(func):
         """Internal function within the automock decorator."""
@@ -471,7 +487,7 @@ def automock(
             """Handles the functionality under 'Case Mode'."""
             input_hash = _find_input_hash(func, args, kwargs)
             output = _get_func_output(func, args, kwargs)
-            for caller_fcid, tcid in test_stack:
+            for caller_fcid, tcid in _test_stack:
                 call_count = _mock_counter.get((func_id, caller_fcid, tcid), 0)
                 _mock_counter[(func_id, caller_fcid, tcid)] = call_count + 1
                 _serializer.save(
@@ -482,14 +498,14 @@ def automock(
                         _basename(func_id, call_count, input_hash),
                     ),
                 )
-            if output.output_type == "raise":
+            if output.output_type == FunctionOutputType.RAISE:
                 raise output.output
             return output.output
 
         def test_mode(*args, **kwargs):
             """Handles the functionality under 'Test Mode'."""
-            caller_fcid = os.environ["__ARTEST_FCID"]
-            tcid = os.environ["__ARTEST_TCID"]
+            caller_fcid = _fcid_var.get()
+            tcid = _tcid_var.get()
 
             call_count = _mock_counter.get((func_id, caller_fcid, tcid), 0)
             _mock_counter[(func_id, caller_fcid, tcid)] = call_count + 1
@@ -503,7 +519,7 @@ def automock(
             if not os.path.exists(path):
                 raise ValueError(f"Mock file missing: {path}")
             output: FunctionOutput = _serializer.read(path)
-            if output.output_type == "raise":
+            if output.output_type == FunctionOutputType.RAISE:
                 raise output.output
             return output.output
 
@@ -511,11 +527,11 @@ def automock(
         def wrapper(*args, **kwargs):
             """Wrapper function determining the behavior based on artest_mode."""
             artest_mode = _get_artest_mode()
-            if artest_mode == "disable":
+            if artest_mode == ArtestMode.DISABLE:
                 return disable_mode(*args, **kwargs)
-            elif artest_mode == "case":
+            elif artest_mode == ArtestMode.CASE:
                 return case_mode(*args, **kwargs)
-            elif artest_mode == "test":
+            elif artest_mode == ArtestMode.TEST:
                 return test_mode(*args, **kwargs)
             raise ValueError(f"Unknown artest mode {artest_mode}")
 
@@ -544,11 +560,10 @@ def main():
 
     """
     _mock_counter.clear()
-    orig_artest_mode = os.environ.get("ARTEST_MODE", None)
-    os.environ["ARTEST_MODE"] = "test"
+    artest_mode_reset_token = _artest_mode_var.set(ArtestMode.TEST)
 
     test_results = []
-    for path in glob(os.path.join(ARTEST_ROOT, "*", "*")):
+    for path in glob(os.path.join(get_artest_root(), "*", "*")):
         fcid, tcid = path.split(os.path.sep)[-2:]
 
         def info_test_result(
@@ -574,8 +589,8 @@ def main():
             )
             get_printer()(s)
 
-        os.environ["__ARTEST_FCID"] = fcid
-        os.environ["__ARTEST_TCID"] = tcid
+        fcid_reset_token = _fcid_var.set(fcid)
+        tcid_reset_token = _tcid_var.set(tcid)
         f_inputs = _build_path(fcid, tcid, "inputs")
         f_outputs = _build_path(fcid, tcid, "outputs")
         f_func = _build_path(fcid, tcid, "func")
@@ -625,11 +640,10 @@ def main():
             _func=func,
         )
 
-    del os.environ["__ARTEST_FCID"]
-    del os.environ["__ARTEST_TCID"]
-    del os.environ["ARTEST_MODE"]
-    if orig_artest_mode is not None:
-        os.environ["ARTEST_MODE"] = orig_artest_mode
+        _fcid_var.reset(fcid_reset_token)
+        _tcid_var.reset(tcid_reset_token)
+
+    _artest_mode_var.reset(artest_mode_reset_token)
 
     if all([r.is_success for r in test_results]):
         get_printer()(f"Passed ({len(test_results)}/{len(test_results)})")

@@ -21,6 +21,8 @@ Functions and Modules Available:
     - set_message_formatter(): Sets the function for formatting the message.
     - get_printer(): Gets the function for printing the message.
     - set_printer(): Sets the function for printing the message.
+    - get_artest_root(): Gets the root path of artest.
+    - set_artest_root(): Sets the root path of artest.
     - MessageRecord: Represents a message record.
 
 Submodules:
@@ -48,12 +50,19 @@ __all__ = [
     "set_printer",
     "get_printer",
     "MessageRecord",
+    "set_artest_root",
+    "get_artest_root",
 ]
 
-from .._schema import MessageRecord
-from .find_functions import get_function_root_path, set_function_root_path
+from ..types import MessageRecord
 from .id_generator import set_test_case_id_generator, test_case_id_generator
 from .match_result import get_is_equal, set_is_equal
+from .paths import (
+    get_artest_root,
+    get_function_root_path,
+    set_artest_root,
+    set_function_root_path,
+)
 from .pickler import (
     get_assert_pickled_object_on_case_mode,
     get_on_pickle_dump_error,

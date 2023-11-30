@@ -9,6 +9,29 @@ Functions:
 import os.path
 
 _function_root_path = None
+_artest_root = None
+
+
+def set_artest_root(root_path):
+    """Sets the root path of artest.
+
+    Args:
+        root_path: The root path to be set.
+    """
+    global _artest_root
+    _artest_root = os.path.abspath(root_path)
+
+
+def get_artest_root():
+    """Gets the root path of artest.
+
+    Returns:
+        str: The root path of artest.
+    """
+    global _artest_root
+    if _artest_root is None:
+        return f"{os.getcwd()}/.artest"
+    return _artest_root
 
 
 def set_function_root_path(root_path):
