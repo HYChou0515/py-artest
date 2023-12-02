@@ -485,7 +485,11 @@ def autostub(
 
         def case_mode(*args, **kwargs):
             """Handles the functionality under 'Case Mode'."""
+            input_hash = None
             if _test_stack:
+                # Need to find input hash before running the function
+                # Because mutable inputs can be different
+                # before and after running the function
                 input_hash = _find_input_hash(func, args, kwargs)
             _test_stack.append(None)
             output = _get_func_output(func, args, kwargs)
