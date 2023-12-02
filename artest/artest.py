@@ -487,8 +487,13 @@ def autostub(
             """Handles the functionality under 'Case Mode'."""
             if _test_stack:
                 input_hash = _find_input_hash(func, args, kwargs)
+            _test_stack.append(None)
             output = _get_func_output(func, args, kwargs)
-            for caller_fcid, tcid in _test_stack:
+            _test_stack.pop()
+            for stack_item in _test_stack[::-1]:  # start from latest caller
+                if stack_item is None:
+                    break
+                caller_fcid, tcid = stack_item
                 call_count = _stub_counter.get((func_id, caller_fcid, tcid), 0)
                 _stub_counter[(func_id, caller_fcid, tcid)] = call_count + 1
                 _serializer.save(
