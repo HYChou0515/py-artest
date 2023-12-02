@@ -29,6 +29,7 @@ hello_id = "7ea1cadf5f034540949a3b5e2ac12865"
 stub_id = "6e435a4e5792483891074fb12af54672"
 staticmethod_id = "ccfd4bde183f43f589b8b8bb80bbdda4"
 static_caller_id = "80098e3731164b568032d333ae9ca04a"
+property_id = "0a3efd01af67495b89c63c43f17bdc63"
 
 
 class Hello:
@@ -55,6 +56,38 @@ class Hello:
     def static_caller(self, x):
         set_call_time(static_caller_id, get_call_time(static_caller_id) + 1)
         return self.staticmethod(x, x + 10)
+
+    @property
+    @autoreg(property_id)
+    def property(self):
+        set_call_time(property_id, get_call_time(property_id) + 1)
+        return "property"
+
+
+@make_test_autoreg()
+@make_cleanup_test_case_files(property_id, _tcid)
+@make_cleanup_file(f"./{property_id}.calltime.pkl")
+def test_class_property():
+    set_call_time(property_id, 0)
+
+    tcid = next(gen2)
+
+    hello = Hello()
+    assert hello.property == "property"
+    assert get_call_time(property_id) == 1  # directly called
+
+    assert_test_case_files_exist(property_id, tcid)
+
+    set_call_time(property_id, 0)
+
+    test_results = artest.artest.main()
+
+    assert len(test_results) == 1
+    assert test_results[0].fcid == property_id
+    assert test_results[0].tcid == tcid
+    assert test_results[0].is_success
+
+    assert get_call_time(property_id) == 1  # directly called
 
 
 @make_test_autoreg()

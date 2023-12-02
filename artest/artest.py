@@ -133,8 +133,15 @@ class _FunctionIdRepository(MutableMapping):
                             cls = getattr(mod, class_name, None)
                             if cls is not None:
                                 func = getattr(cls, func_name, None)
-                                if func is not None and func.__artest_func_id__ == key:
-                                    return func
+                                if func is None:
+                                    continue
+                                elif inspect.isdatadescriptor(func):
+                                    func = func.fget
+                                    if func.__artest_func_id__ == key:
+                                        return func
+                                else:
+                                    if func.__artest_func_id__ == key:
+                                        return func
             return None
 
         func = find_func()
