@@ -485,7 +485,8 @@ def autostub(
 
         def case_mode(*args, **kwargs):
             """Handles the functionality under 'Case Mode'."""
-            input_hash = _find_input_hash(func, args, kwargs)
+            if _test_stack:
+                input_hash = _find_input_hash(func, args, kwargs)
             output = _get_func_output(func, args, kwargs)
             for caller_fcid, tcid in _test_stack:
                 call_count = _stub_counter.get((func_id, caller_fcid, tcid), 0)
