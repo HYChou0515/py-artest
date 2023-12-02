@@ -5,6 +5,7 @@ from artest import autoreg, autostub
 from artest.config import set_test_case_id_generator
 from tests.helper import (
     assert_test_case_files_exist,
+    call_time_path,
     get_call_time,
     make_cleanup_file,
     make_cleanup_test_case_files,
@@ -54,9 +55,9 @@ def the_stub(x):
 @make_test_autoreg()
 @make_cleanup_test_case_files(hello_id, _tcid)
 @make_cleanup_test_case_files(hello1_id, _tcid)
-@make_cleanup_file(f"./{hello_id}.calltime.pkl")
-@make_cleanup_file(f"./{hello1_id}.calltime.pkl")
-@make_cleanup_file(f"./{stub_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(hello_id))
+@make_cleanup_file(call_time_path(hello1_id))
+@make_cleanup_file(call_time_path(stub_id))
 def test_recursive():
     set_call_time(hello1_id, 0)
     set_call_time(hello_id, 0)

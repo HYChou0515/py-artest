@@ -7,6 +7,7 @@ from artest import autoreg, autostub
 from artest.config import set_test_case_id_generator
 from tests.helper import (
     assert_test_case_files_exist,
+    call_time_path,
     get_call_time,
     make_cleanup_file,
     make_cleanup_test_case_files,
@@ -63,8 +64,8 @@ def the_stub(x):
 
 @make_test_autoreg()
 @make_cleanup_test_case_files(hello_id, _tcid)
-@make_cleanup_file(f"./{hello_id}.calltime.pkl")
-@make_cleanup_file(f"./{stub_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(hello_id))
+@make_cleanup_file(call_time_path(stub_id))
 def test_autoreg_exception():
     set_call_time(hello_id, 0)
     set_call_time(stub_id, 0)
@@ -96,8 +97,8 @@ def test_autoreg_exception():
 
 @make_test_autoreg()
 @make_cleanup_test_case_files(hello2_id, _tcid)
-@make_cleanup_file(f"./{hello2_id}.calltime.pkl")
-@make_cleanup_file(f"./{stub_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(hello2))
+@make_cleanup_file(call_time_path(stub_id))
 def test_autostub_exception():
     set_call_time(hello2_id, 0)
     set_call_time(stub_id, 0)
@@ -129,8 +130,8 @@ def test_autostub_exception():
 
 @make_test_autoreg()
 @make_cleanup_test_case_files(hello3_id, _tcid)
-@make_cleanup_file(f"./{hello3_id}.calltime.pkl")
-@make_cleanup_file(f"./{stub_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(hello3_id))
+@make_cleanup_file(call_time_path(stub_id))
 def test_autostub_exception2():
     set_call_time(hello3_id, 0)
     set_call_time(stub_id, 0)

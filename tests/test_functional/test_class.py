@@ -136,7 +136,7 @@ class Hello:
 
 @make_test_autoreg()
 @make_cleanup_test_case_files(classmethod_id, None)
-@make_cleanup_file(f"./{classmethod_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(classmethod_id))
 def test_class_class_method():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
