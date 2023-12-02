@@ -5,7 +5,7 @@ This package provides functionalities for serialization and test case management
 Functions and Modules Available:
     - get_pickler(): Gets the pickler object for serialization.
     - set_pickler(): Sets the pickler object for serialization.
-    - test_case_id_generator: Generator function for test case IDs.
+    - get_test_case_id_generator: Gets the test case ID generator function.
     - set_test_case_id_generator(): Sets the test case ID generator function.
     - get_on_pickle_dump_error(): Gets the action to take on specific pickling errors.
     - set_on_pickle_dump_error(): Sets the action to take on specific pickling errors.
@@ -33,7 +33,7 @@ Submodules:
 __all__ = [
     "get_pickler",
     "set_pickler",
-    "test_case_id_generator",
+    "get_test_case_id_generator",
     "set_test_case_id_generator",
     "get_on_pickle_dump_error",
     "set_on_pickle_dump_error",
@@ -55,7 +55,7 @@ __all__ = [
 ]
 
 from ..types import MessageRecord
-from .id_generator import set_test_case_id_generator, test_case_id_generator
+from .id_generator import get_test_case_id_generator, set_test_case_id_generator
 from .match_result import get_is_equal, set_is_equal
 from .paths import (
     get_artest_root,
