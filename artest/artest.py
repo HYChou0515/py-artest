@@ -139,6 +139,9 @@ class _FunctionIdRepository(MutableMapping):
                                     func = func.fget
                                     if func.__artest_func_id__ == key:
                                         return func
+                                elif inspect.ismethod(func):
+                                    if func.__func__.__artest_func_id__ == key:
+                                        return func.__func__
                                 else:
                                     if func.__artest_func_id__ == key:
                                         return func

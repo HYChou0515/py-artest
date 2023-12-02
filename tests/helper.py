@@ -39,9 +39,13 @@ def pop_all_from_list(lst):
         lst.pop()
 
 
+def call_time_path(id):
+    return f"./.test-only.{id}.calltime.pkl"
+
+
 def get_call_time(id):
     try:
-        with open(f"./{id}.calltime.pkl", "rb") as f:
+        with open(call_time_path(id), "rb") as f:
             call_time = pickle.load(f)
     except Exception:
         call_time = 0
@@ -49,7 +53,7 @@ def get_call_time(id):
 
 
 def set_call_time(id, call_time):
-    with open(f"./{id}.calltime.pkl", "wb") as f:
+    with open(call_time_path(id), "wb") as f:
         pickle.dump(call_time, f)
 
 

@@ -7,6 +7,7 @@ from artest import autoreg, autostub
 from artest.config import set_test_case_id_generator
 from tests.helper import (
     assert_test_case_files_exist,
+    call_time_path,
     get_call_time,
     make_cleanup_file,
     make_cleanup_test_case_files,
@@ -31,6 +32,7 @@ decorator_id = "5cf078f0f42642c7a1a7c6283aa68c5b"
 decorator2_id = "2fa94dbc6f5d42198ecbb140e013caad"
 decorator3_id = "55a09978ce314120abb31506d89672db"
 decorator_and_property_id = "afb995a2a5054062aa2add3ec0b84abb"
+classmethod_id = "d9ee01b913694410aaa5c0a432199068"
 
 
 def custom_decorator(func):
@@ -78,6 +80,12 @@ class Hello:
         x = iox.read()
         set_call_time(stub_id, get_call_time(stub_id) + 1)
         return x * 3
+
+    @classmethod
+    @autoreg(classmethod_id)
+    def class_method(cls, a, b):
+        set_call_time(classmethod_id, get_call_time(classmethod_id) + 1)
+        return a + b + 30
 
     @staticmethod
     @autoreg(staticmethod_id)
@@ -127,12 +135,40 @@ class Hello:
 
 
 @make_test_autoreg()
+@make_cleanup_test_case_files(classmethod_id, None)
+@make_cleanup_file(call_time_path(classmethod_id))
+def test_class_class_method():
+    gen1, gen2 = itertools.tee(gen(), 2)
+    set_test_case_id_generator(gen1)
+
+    set_call_time(classmethod_id, 0)
+
+    tcid = next(gen2)
+
+    assert Hello.class_method(20, 15) == 65
+    assert get_call_time(classmethod_id) == 1  # directly called
+
+    assert_test_case_files_exist(classmethod_id, tcid)
+
+    set_call_time(classmethod_id, 0)
+
+    test_results = artest.artest.main()
+
+    assert len(test_results) == 1
+    assert test_results[0].fcid == classmethod_id
+    assert test_results[0].tcid == tcid
+    assert test_results[0].is_success
+
+    assert get_call_time(classmethod_id) == 1  # directly called
+
+
+@make_test_autoreg()
 @make_cleanup_test_case_files(decorator3_id, None)
-@make_cleanup_file(f"./{decorator3_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(decorator3_id))
 @make_cleanup_test_case_files(decorator2_id, None)
-@make_cleanup_file(f"./{decorator2_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(decorator2_id))
 @make_cleanup_test_case_files(decorator_and_property_id, None)
-@make_cleanup_file(f"./{decorator_and_property_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(decorator_and_property_id))
 def test_class_decorator3():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -171,7 +207,7 @@ def test_class_decorator3():
 
 @make_test_autoreg()
 @make_cleanup_test_case_files(decorator2_id, None)
-@make_cleanup_file(f"./{decorator2_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(decorator2_id))
 def test_class_decorator2():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -200,7 +236,7 @@ def test_class_decorator2():
 
 @make_test_autoreg()
 @make_cleanup_test_case_files(decorator_and_property_id, None)
-@make_cleanup_file(f"./{decorator_and_property_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(decorator_and_property_id))
 def test_class_decorator_and_property():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -229,7 +265,7 @@ def test_class_decorator_and_property():
 
 @make_test_autoreg()
 @make_cleanup_test_case_files(decorator_id, None)
-@make_cleanup_file(f"./{decorator_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(decorator_id))
 def test_class_decorator():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -258,7 +294,7 @@ def test_class_decorator():
 
 @make_test_autoreg()
 @make_cleanup_test_case_files(property_id, None)
-@make_cleanup_file(f"./{property_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(property_id))
 def test_class_property():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -288,8 +324,8 @@ def test_class_property():
 @make_test_autoreg()
 @make_cleanup_test_case_files(staticmethod_id, None)
 @make_cleanup_test_case_files(static_caller_id, None)
-@make_cleanup_file(f"./{staticmethod_id}.calltime.pkl")
-@make_cleanup_file(f"./{static_caller_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(staticmethod_id))
+@make_cleanup_file(call_time_path(static_caller_id))
 def test_class_staticmethod_call():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -324,7 +360,7 @@ def test_class_staticmethod_call():
 
 @make_test_autoreg()
 @make_cleanup_test_case_files(staticmethod_id, None)
-@make_cleanup_file(f"./{staticmethod_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(staticmethod_id))
 def test_class_staticmethod():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -353,8 +389,8 @@ def test_class_staticmethod():
 
 @make_test_autoreg()
 @make_cleanup_test_case_files(hello_id, None)
-@make_cleanup_file(f"./{hello_id}.calltime.pkl")
-@make_cleanup_file(f"./{stub_id}.calltime.pkl")
+@make_cleanup_file(call_time_path(hello_id))
+@make_cleanup_file(call_time_path(stub_id))
 def test_class():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
