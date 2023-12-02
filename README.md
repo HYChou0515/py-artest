@@ -92,20 +92,20 @@ The test case generation is done automatically.
 In this updated version, we still have the to_whom function to determine the value of to.
 When running the program, the output remains the same: "hello world!".
 
-## Mocking with automock
-In situations where the to_whom function takes a long time to execute or is not available during testing, you can create a mock instead. A mock is a simulated function that returns predefined values specifically defined in the test case.
+## Stubbing with autostub
+In situations where the to_whom function takes a long time to execute or is not available during testing, you can create a stub instead. A stub is a simulated function that returns predefined values specifically defined in the test case.
 
-To automatically create a mock, you can use the automock decorator. When applied to a function, Artest will generate the mock for you.
+To automatically create a stub, you can use the autostub decorator. When applied to a function, Artest will generate the stub for you.
 
 ```python
-from artest import autoreg, automock
+from artest import autoreg, autostub
 
 @autoreg("a5f4cb0f")
 def hello(say):
     to = to_whom(1)
     return f"{say} {to}!"
 
-@automock("35988d25")  # 🎉 add this to auto create mock function
+@autostub("35988d25")  # 🎉 add this to auto create stub function
 def to_whom(x):
     choices = read_from_db()
     # choices = ["sir", "world",]
@@ -116,10 +116,10 @@ if __name__ == "__main__":
     # Output: hello world!
 ```
 
-In the updated code, the to_whom function has been decorated with automock 
+In the updated code, the to_whom function has been decorated with autostub 
 using the unique identifier "35988d25". 
-This allows Artest to automatically generate a mock for the to_whom function. 
-Inside the mock, the choices variable is typically defined in the test case 
+This allows Artest to automatically generate a stub for the to_whom function. 
+Inside the stub, the choices variable is typically defined in the test case 
 rather than being fetched from the database, 
 ensuring faster and more controlled testing.
 

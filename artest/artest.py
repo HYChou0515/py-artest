@@ -4,7 +4,7 @@ This module provides decorators and utilities for automatic regression testing.
 
 Functions:
     autoreg: Auto Regression Test Decorator.
-    automock: Automock Decorator.
+    autostub: Autostub Decorator.
     main: Execute Automated Regression Testing.
 
 """
@@ -307,7 +307,7 @@ def _build_path(fcid, tcid, basename):
 
 
 _AUTOREG_REGISTERED = set()
-_AUTOMOCK_REGISTERED = set()
+_AUTOSTUB_REGISTERED = set()
 _test_stack = []
 
 
@@ -358,11 +358,11 @@ def autoreg(
     1. Generate a test case ID and push it to the test stack.
     2. Execute the function:
        2.1. If a sub-function is decorated with autoreg, run it recursively.
-       2.2. If the sub-function is decorated with automock:
+       2.2. If the sub-function is decorated with autostub:
             - Calculate the input hash.
             - Execute the function.
             - For each caller-fcid,tcid in the stack:
-                Save output under /caller-fcid/tcid/mock/fcid.order.inputhash.output.
+                Save output under /caller-fcid/tcid/stub/fcid.order.inputhash.output.
     3. Save the serialized input and output under /fcid/tcid/input,output.
     4. Pop the test stack.
 
@@ -371,9 +371,9 @@ def autoreg(
     2. Load the input and output from /fcid/tcid/input,output.
     3. Execute the function:
        3.1. If a sub-function is decorated with autoreg, run the function normally.
-       3.2. If the sub-function is decorated with automock:
+       3.2. If the sub-function is decorated with autostub:
             - Calculate the input hash.
-            - Load the output from /caller_fcid/tcid/mock/fcid.order.inputhash.output.
+            - Load the output from /caller_fcid/tcid/stub/fcid.order.inputhash.output.
     4. Compare the output with the loaded one.
 
     Args:
@@ -442,18 +442,18 @@ def autoreg(
     return _autoreg
 
 
-_mock_counter = {}
+_stub_counter = {}
 
 
-def automock(
+def autostub(
     func_id: str,
     *,
     on_duplicate: OnFuncIdDuplicateAction = OnFuncIdDuplicateAction.RAISE,
 ):
-    """Automock Decorator.
+    """Autostub Decorator.
 
-    This decorator is utilized to generate and manage mock data for functions during testing.
-    The decorator orchestrates the handling of mock data creation and retrieval based on specified modes.
+    This decorator is utilized to generate and manage stub data for functions during testing.
+    The decorator orchestrates the handling of stub data creation and retrieval based on specified modes.
 
     Args:
         func_id (str): The identifier for the function.
@@ -462,34 +462,34 @@ def automock(
         function: Decorated function.
 
     Raises:
-        ValueError: If the provided function ID is already registered in automock.
+        ValueError: If the provided function ID is already registered in autostub.
     """
     if _overload_on_duplicate_var.get() is not None:
         on_duplicate = _overload_on_duplicate_var.get()
     func_id = str(func_id)
-    if func_id in _AUTOMOCK_REGISTERED:
+    if func_id in _AUTOSTUB_REGISTERED:
         if on_duplicate == OnFuncIdDuplicateAction.RAISE:
-            raise ValueError(f"Function {func_id} is already registered in automock.")
+            raise ValueError(f"Function {func_id} is already registered in autostub.")
     else:
-        _AUTOMOCK_REGISTERED.add(func_id)
+        _AUTOSTUB_REGISTERED.add(func_id)
 
-    def _automock(func):
-        """Internal function within the automock decorator."""
+    def _autostub(func):
+        """Internal function within the autostub decorator."""
 
         def disable_mode(*args, **kwargs):
             return func(*args, **kwargs)
 
         def _basename(func_id, call_count, input_hash):
-            """Generates the basename for mock output files."""
-            return os.path.join("mock", f"{func_id}.{call_count}.{input_hash}.output")
+            """Generates the basename for stub output files."""
+            return os.path.join("stub", f"{func_id}.{call_count}.{input_hash}.output")
 
         def case_mode(*args, **kwargs):
             """Handles the functionality under 'Case Mode'."""
             input_hash = _find_input_hash(func, args, kwargs)
             output = _get_func_output(func, args, kwargs)
             for caller_fcid, tcid in _test_stack:
-                call_count = _mock_counter.get((func_id, caller_fcid, tcid), 0)
-                _mock_counter[(func_id, caller_fcid, tcid)] = call_count + 1
+                call_count = _stub_counter.get((func_id, caller_fcid, tcid), 0)
+                _stub_counter[(func_id, caller_fcid, tcid)] = call_count + 1
                 _serializer.save(
                     output,
                     _build_path(
@@ -507,8 +507,8 @@ def automock(
             caller_fcid = _fcid_var.get()
             tcid = _tcid_var.get()
 
-            call_count = _mock_counter.get((func_id, caller_fcid, tcid), 0)
-            _mock_counter[(func_id, caller_fcid, tcid)] = call_count + 1
+            call_count = _stub_counter.get((func_id, caller_fcid, tcid), 0)
+            _stub_counter[(func_id, caller_fcid, tcid)] = call_count + 1
 
             input_hash = _find_input_hash(func, args, kwargs)
             path = _build_path(
@@ -517,7 +517,7 @@ def automock(
                 _basename(func_id, call_count, input_hash),
             )
             if not os.path.exists(path):
-                raise ValueError(f"Mock file missing: {path}")
+                raise ValueError(f"Stub file missing: {path}")
             output: FunctionOutput = _serializer.read(path)
             if output.output_type == FunctionOutputType.RAISE:
                 raise output.output
@@ -537,7 +537,7 @@ def automock(
 
         return wrapper
 
-    return _automock
+    return _autostub
 
 
 def main():
@@ -559,7 +559,7 @@ def main():
                     Or if an exception occurs during function execution.
 
     """
-    _mock_counter.clear()
+    _stub_counter.clear()
     artest_mode_reset_token = _artest_mode_var.set(ArtestMode.TEST)
 
     test_results = []

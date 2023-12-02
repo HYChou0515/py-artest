@@ -18,4 +18,8 @@ style:
 
 clean:
 	rm -rf dist
-	rm -rf .pytest_cache
+	rm -rf .ruff_cache
+	rm -rf htmlcov
+	rm -rf .coverage
+	find . -type d -not -path "./.git/*" -name ".pytest_cache" | xargs rm -rf
+	find . -type d -not -path "./.git/*" -name "__pycache__" | xargs rm -rf
