@@ -1,5 +1,6 @@
 import io
 import itertools
+from functools import wraps
 
 import artest.artest
 from artest import autoreg, autostub
@@ -30,6 +31,16 @@ stub_id = "6e435a4e5792483891074fb12af54672"
 staticmethod_id = "ccfd4bde183f43f589b8b8bb80bbdda4"
 static_caller_id = "80098e3731164b568032d333ae9ca04a"
 property_id = "0a3efd01af67495b89c63c43f17bdc63"
+decorator_id = "5cf078f0f42642c7a1a7c6283aa68c5b"
+
+
+def custom_decorator(func):
+    @wraps(func)
+    def _wrapped(*args, **kwargs):
+        kwargs["x"] += 1
+        return func(*args, **kwargs)
+
+    return _wrapped
 
 
 class Hello:
@@ -62,6 +73,38 @@ class Hello:
     def property(self):
         set_call_time(property_id, get_call_time(property_id) + 1)
         return "property"
+
+    @autoreg(decorator_id)
+    @custom_decorator
+    def decorator(self, *, x):
+        set_call_time(decorator_id, get_call_time(decorator_id) + 1)
+        return x + 10
+
+
+@make_test_autoreg()
+@make_cleanup_test_case_files(decorator_id, _tcid)
+@make_cleanup_file(f"./{decorator_id}.calltime.pkl")
+def test_class_decorator():
+    set_call_time(decorator_id, 0)
+
+    tcid = next(gen2)
+
+    hello = Hello()
+    assert hello.decorator(x=10) == 21
+    assert get_call_time(decorator_id) == 1  # directly called
+
+    assert_test_case_files_exist(decorator_id, tcid)
+
+    set_call_time(decorator_id, 0)
+
+    test_results = artest.artest.main()
+
+    assert len(test_results) == 1
+    assert test_results[0].fcid == decorator_id
+    assert test_results[0].tcid == tcid
+    assert test_results[0].is_success
+
+    assert get_call_time(decorator_id) == 1  # directly called
 
 
 @make_test_autoreg()
