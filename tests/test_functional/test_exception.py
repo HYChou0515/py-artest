@@ -3,7 +3,7 @@ import itertools
 import pytest
 
 import artest.artest
-from artest import automock, autoreg
+from artest import autoreg, autostub
 from artest.config import set_test_case_id_generator
 from tests.helper import (
     assert_test_case_files_exist,
@@ -29,7 +29,7 @@ set_test_case_id_generator(gen1)
 hello_id = "b5e47da9abc046eeac92ecff783e56f7"
 hello2_id = "7711d7ad1b614b0bafec82b06e867d00"
 hello3_id = "7eb5cb53de174839ace25a988f04a5c4"
-mock_id = "4dfc86f1a6114a3a903cac3fbe32c57d"
+stub_id = "4dfc86f1a6114a3a903cac3fbe32c57d"
 
 
 @autoreg(hello_id)
@@ -41,7 +41,7 @@ def hello(say, to):
 @autoreg(hello2_id)
 def hello2(say, to):
     set_call_time(hello2_id, get_call_time(hello2_id) + 1)
-    the_mock(5)
+    the_stub(5)
     raise ValueError("Hello")
 
 
@@ -49,25 +49,25 @@ def hello2(say, to):
 def hello3(say, to):
     set_call_time(hello3_id, get_call_time(hello3_id) + 1)
     try:
-        the_mock(5)
+        the_stub(5)
     except TypeError as err:
         return str(err)
     return None
 
 
-@automock(mock_id)
-def the_mock(x):
-    set_call_time(mock_id, get_call_time(mock_id) + 1)
-    raise TypeError(f"Mock {x}")
+@autostub(stub_id)
+def the_stub(x):
+    set_call_time(stub_id, get_call_time(stub_id) + 1)
+    raise TypeError(f"Stub {x}")
 
 
 @make_test_autoreg()
 @make_cleanup_test_case_files(hello_id, _tcid)
 @make_cleanup_file(f"./{hello_id}.calltime.pkl")
-@make_cleanup_file(f"./{mock_id}.calltime.pkl")
+@make_cleanup_file(f"./{stub_id}.calltime.pkl")
 def test_autoreg_exception():
     set_call_time(hello_id, 0)
-    set_call_time(mock_id, 0)
+    set_call_time(stub_id, 0)
 
     tcid = next(gen2)
 
@@ -76,12 +76,12 @@ def test_autoreg_exception():
         assert str(err.value) == "Hello"
 
     assert get_call_time(hello_id) == 1  # directly called
-    assert get_call_time(mock_id) == 0  # called once by hello
+    assert get_call_time(stub_id) == 0  # called once by hello
 
     assert_test_case_files_exist(hello_id, tcid)
 
     set_call_time(hello_id, 0)
-    set_call_time(mock_id, 0)
+    set_call_time(stub_id, 0)
 
     test_results = artest.artest.main()
 
@@ -91,16 +91,16 @@ def test_autoreg_exception():
     assert test_results[0].is_success
 
     assert get_call_time(hello_id) == 1  # directly called
-    assert get_call_time(mock_id) == 0  # mocked by artest, should not be called
+    assert get_call_time(stub_id) == 0  # stubed by artest, should not be called
 
 
 @make_test_autoreg()
 @make_cleanup_test_case_files(hello2_id, _tcid)
 @make_cleanup_file(f"./{hello2_id}.calltime.pkl")
-@make_cleanup_file(f"./{mock_id}.calltime.pkl")
-def test_automock_exception():
+@make_cleanup_file(f"./{stub_id}.calltime.pkl")
+def test_autostub_exception():
     set_call_time(hello2_id, 0)
-    set_call_time(mock_id, 0)
+    set_call_time(stub_id, 0)
 
     tcid = next(gen2)
 
@@ -109,12 +109,12 @@ def test_automock_exception():
         assert str(err.value) == "Hello"
 
     assert get_call_time(hello2_id) == 1  # directly called
-    assert get_call_time(mock_id) == 1  # called once by hello
+    assert get_call_time(stub_id) == 1  # called once by hello
 
     assert_test_case_files_exist(hello2_id, tcid)
 
     set_call_time(hello2_id, 0)
-    set_call_time(mock_id, 0)
+    set_call_time(stub_id, 0)
 
     test_results = artest.artest.main()
 
@@ -124,28 +124,28 @@ def test_automock_exception():
     assert test_results[0].is_success
 
     assert get_call_time(hello2_id) == 1  # directly called
-    assert get_call_time(mock_id) == 0  # mocked by artest, should not be called
+    assert get_call_time(stub_id) == 0  # stubed by artest, should not be called
 
 
 @make_test_autoreg()
 @make_cleanup_test_case_files(hello3_id, _tcid)
 @make_cleanup_file(f"./{hello3_id}.calltime.pkl")
-@make_cleanup_file(f"./{mock_id}.calltime.pkl")
-def test_automock_exception2():
+@make_cleanup_file(f"./{stub_id}.calltime.pkl")
+def test_autostub_exception2():
     set_call_time(hello3_id, 0)
-    set_call_time(mock_id, 0)
+    set_call_time(stub_id, 0)
 
     tcid = next(gen2)
 
     hello3("Hello", "World")
 
     assert get_call_time(hello3_id) == 1  # directly called
-    assert get_call_time(mock_id) == 1  # called once by hello
+    assert get_call_time(stub_id) == 1  # called once by hello
 
     assert_test_case_files_exist(hello3_id, tcid)
 
     set_call_time(hello3_id, 0)
-    set_call_time(mock_id, 0)
+    set_call_time(stub_id, 0)
 
     test_results = artest.artest.main()
 
@@ -154,4 +154,4 @@ def test_automock_exception2():
     assert test_results[0].tcid == tcid
     assert test_results[0].is_success
     assert get_call_time(hello3_id) == 1  # directly called
-    assert get_call_time(mock_id) == 0  # mocked by artest, should not be called
+    assert get_call_time(stub_id) == 0  # stubed by artest, should not be called
