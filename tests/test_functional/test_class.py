@@ -32,6 +32,7 @@ staticmethod_id = "ccfd4bde183f43f589b8b8bb80bbdda4"
 static_caller_id = "80098e3731164b568032d333ae9ca04a"
 property_id = "0a3efd01af67495b89c63c43f17bdc63"
 decorator_id = "5cf078f0f42642c7a1a7c6283aa68c5b"
+decorator2_id = "2fa94dbc6f5d42198ecbb140e013caad"
 decorator_and_property_id = "afb995a2a5054062aa2add3ec0b84abb"
 
 
@@ -44,7 +45,7 @@ def custom_decorator(func):
     return _wrapped
 
 
-def property_decorator(func):
+def custom_decorator2(func):
     @wraps(func)
     def _wrapped(*args, **kwargs):
         x = func(*args, **kwargs)
@@ -92,12 +93,44 @@ class Hello:
 
     @property
     @autoreg(decorator_and_property_id)
-    @property_decorator
+    @custom_decorator2
     def decorator_and_property(self):
         set_call_time(
             decorator_and_property_id, get_call_time(decorator_and_property_id) + 1
         )
         return 100
+
+    @autoreg(decorator2_id)
+    @custom_decorator2
+    def decorator_and_property2(self, x):
+        set_call_time(decorator2_id, get_call_time(decorator2_id) + 1)
+        return x + 10
+
+
+@make_test_autoreg()
+@make_cleanup_test_case_files(decorator2_id, _tcid)
+@make_cleanup_file(f"./{decorator2_id}.calltime.pkl")
+def test_class_decorator2():
+    set_call_time(decorator2_id, 0)
+
+    tcid = next(gen2)
+
+    hello = Hello()
+    assert hello.decorator_and_property2(20) == 31
+    assert get_call_time(decorator2_id) == 1  # directly called
+
+    assert_test_case_files_exist(decorator2_id, tcid)
+
+    set_call_time(decorator2_id, 0)
+
+    test_results = artest.artest.main()
+
+    assert len(test_results) == 1
+    assert test_results[0].fcid == decorator2_id
+    assert test_results[0].tcid == tcid
+    assert test_results[0].is_success
+
+    assert get_call_time(decorator2_id) == 1  # directly called
 
 
 @make_test_autoreg()
