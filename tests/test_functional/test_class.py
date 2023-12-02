@@ -32,6 +32,7 @@ staticmethod_id = "ccfd4bde183f43f589b8b8bb80bbdda4"
 static_caller_id = "80098e3731164b568032d333ae9ca04a"
 property_id = "0a3efd01af67495b89c63c43f17bdc63"
 decorator_id = "5cf078f0f42642c7a1a7c6283aa68c5b"
+decorator_and_property_id = "afb995a2a5054062aa2add3ec0b84abb"
 
 
 def custom_decorator(func):
@@ -39,6 +40,15 @@ def custom_decorator(func):
     def _wrapped(*args, **kwargs):
         kwargs["x"] += 1
         return func(*args, **kwargs)
+
+    return _wrapped
+
+
+def property_decorator(func):
+    @wraps(func)
+    def _wrapped(*args, **kwargs):
+        x = func(*args, **kwargs)
+        return x + 1
 
     return _wrapped
 
@@ -70,7 +80,7 @@ class Hello:
 
     @property
     @autoreg(property_id)
-    def property(self):
+    def property_func(self):
         set_call_time(property_id, get_call_time(property_id) + 1)
         return "property"
 
@@ -79,6 +89,41 @@ class Hello:
     def decorator(self, *, x):
         set_call_time(decorator_id, get_call_time(decorator_id) + 1)
         return x + 10
+
+    @property
+    @autoreg(decorator_and_property_id)
+    @property_decorator
+    def decorator_and_property(self):
+        set_call_time(
+            decorator_and_property_id, get_call_time(decorator_and_property_id) + 1
+        )
+        return 100
+
+
+@make_test_autoreg()
+@make_cleanup_test_case_files(decorator_and_property_id, _tcid)
+@make_cleanup_file(f"./{decorator_and_property_id}.calltime.pkl")
+def test_class_decorator_and_property():
+    set_call_time(decorator_and_property_id, 0)
+
+    tcid = next(gen2)
+
+    hello = Hello()
+    assert hello.decorator_and_property == 101
+    assert get_call_time(decorator_and_property_id) == 1  # directly called
+
+    assert_test_case_files_exist(decorator_and_property_id, tcid)
+
+    set_call_time(decorator_and_property_id, 0)
+
+    test_results = artest.artest.main()
+
+    assert len(test_results) == 1
+    assert test_results[0].fcid == decorator_and_property_id
+    assert test_results[0].tcid == tcid
+    assert test_results[0].is_success
+
+    assert get_call_time(decorator_and_property_id) == 1  # directly called
 
 
 @make_test_autoreg()
@@ -116,7 +161,7 @@ def test_class_property():
     tcid = next(gen2)
 
     hello = Hello()
-    assert hello.property == "property"
+    assert hello.property_func == "property"
     assert get_call_time(property_id) == 1  # directly called
 
     assert_test_case_files_exist(property_id, tcid)
