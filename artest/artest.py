@@ -28,7 +28,7 @@ from artest.config import (
     get_is_equal,
     get_on_pickle_dump_error,
     get_pickler,
-    test_case_id_generator,
+    get_test_case_id_generator,
 )
 from artest.config.printer import get_message_formatter, get_printer
 from artest.types import (
@@ -408,7 +408,7 @@ def autoreg(
             return func(*args, **kwargs)
 
         def case_mode(*args, **kwargs):
-            tcid = next(test_case_id_generator)
+            tcid = next(get_test_case_id_generator())
             _test_stack.append((func_id, tcid))
             f_inputs = _build_path(func_id, tcid, "inputs")
             f_outputs = _build_path(func_id, tcid, "outputs")

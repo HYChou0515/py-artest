@@ -23,3 +23,4 @@ clean:
 	rm -rf .coverage
 	find . -type d -not -path "./.git/*" -name ".pytest_cache" | xargs rm -rf
 	find . -type d -not -path "./.git/*" -name "__pycache__" | xargs rm -rf
+	find . -type d -not -path "./.git/*" -name .artest | xargs rm -rf

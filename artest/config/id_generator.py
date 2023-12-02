@@ -1,57 +1,45 @@
 """Test Case ID Management Module.
 
-This module provides functionality for managing unique test case IDs within the artest framework.
-It includes a class `TestCaseIdGenerator` and functions for generating and setting test case IDs.
-
-Classes:
-    - TestCaseIdGenerator: Manages the generation of unique test case IDs.
+This module provides functionality for managing test case IDs.
 
 Functions:
-    - default_test_case_id_generator(): Generates unique IDs for test cases.
-    - set_test_case_id_generator(gen=None): Sets a custom test case ID generator.
+    - set_test_case_id_generator(gen=None): Sets the test case ID generator function.
+    - get_test_case_id_generator(): Gets the test case ID generator function.
 
-Public Objects:
-    - test_case_id_generator: Instance of `TestCaseIdGenerator` for generating test case IDs.
-
-Usage:
-    from artest.id_generator import test_case_id_generator
-
-    next_id = next(test_case_id_generator)  # Get the next unique test case ID
-    test_case_id_generator.set_test_case_id_generator(my_custom_generator)  # Set a custom ID generator
+Classes:
+    - _TestCaseIdGenerator: Generates unique test case IDs.
 
 """
 
 from uuid import uuid4
 
 
-class TestCaseIdGenerator:
+class _TestCaseIdGenerator:
     """Generates unique test case IDs.
 
     This class manages the generation of unique test case IDs used within the artest framework.
     It implements the iterable protocol to generate IDs on demand.
 
     Usage:
-        generator = TestCaseIdGenerator()
+        generator = _TestCaseIdGenerator()
         next_id = next(generator)  # Get the next unique test case ID
 
     """
 
-    def __init__(self):
-        """Initializes the TestCaseIdGenerator.
+    def __init__(self, gen):
+        """Initializes the _TestCaseIdGenerator.
 
-        This method initializes the TestCaseIdGenerator class.
+        This method initializes the _TestCaseIdGenerator class.
         It sets up the internal generator used for generating test case IDs when iterated.
 
         Usage:
-            generator = TestCaseIdGenerator()  # Initialize the test case ID generator
+            generator = _TestCaseIdGenerator()  # Initialize the test case ID generator
 
         """
-        self._gen = None
+        self._gen = gen
 
     def __next__(self):
         """Generates the next unique test case ID."""
-        if self._gen is None:
-            self._gen = _test_case_id_generator
         return next(self._gen)
 
     def __iter__(self):
@@ -76,7 +64,7 @@ def default_test_case_id_generator():
         yield f"tc-{str(uuid4())[:8]}"
 
 
-_test_case_id_generator = default_test_case_id_generator()
+_test_case_id_generator = _TestCaseIdGenerator(default_test_case_id_generator())
 
 
 def set_test_case_id_generator(gen=None):
@@ -93,7 +81,22 @@ def set_test_case_id_generator(gen=None):
 
     """
     global _test_case_id_generator
-    _test_case_id_generator = gen
+
+    if gen is None:
+        gen = default_test_case_id_generator()
+    _test_case_id_generator = _TestCaseIdGenerator(gen)
 
 
-test_case_id_generator = TestCaseIdGenerator()
+def get_test_case_id_generator():
+    """Gets the test case ID generator function.
+
+    This function returns the current test case ID generator function.
+
+    Returns:
+        callable: The current test case ID generator function.
+
+    Usage:
+        generator = get_test_case_id_generator()  # Get the current ID generator
+
+    """
+    return _test_case_id_generator

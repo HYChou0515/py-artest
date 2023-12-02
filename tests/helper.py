@@ -72,7 +72,10 @@ def cleanup_test_case_files(fcid, tcid):
         fcid (str): The directory for the test case.
         tcid (str): The test case ID.
     """
-    shutil.rmtree(f"./.artest/{fcid}/{tcid}", ignore_errors=True)
+    if tcid is None:
+        shutil.rmtree(f"./.artest/{fcid}", ignore_errors=True)
+    else:
+        shutil.rmtree(f"./.artest/{fcid}/{tcid}", ignore_errors=True)
 
 
 def make_cleanup_test_case_files(fcid, tcid):
