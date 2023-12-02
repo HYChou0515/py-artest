@@ -85,4 +85,4 @@ def test_recursive():
 
     assert get_call_time(hello_id) == 1  # directly called
     assert get_call_time(hello1_id) == 2  # directly called + called once by hello
-    assert get_call_time(stub_id) == 0  # stubed by artest, should not be called
+    assert get_call_time(stub_id) == 0  # stubbed by artest, should not be called

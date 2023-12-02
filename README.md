@@ -92,7 +92,7 @@ The test case generation is done automatically.
 In this updated version, we still have the to_whom function to determine the value of to.
 When running the program, the output remains the same: "hello world!".
 
-## Stubing with autostub
+## Stubbing with autostub
 In situations where the to_whom function takes a long time to execute or is not available during testing, you can create a stub instead. A stub is a simulated function that returns predefined values specifically defined in the test case.
 
 To automatically create a stub, you can use the autostub decorator. When applied to a function, Artest will generate the stub for you.

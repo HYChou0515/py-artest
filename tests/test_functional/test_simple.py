@@ -68,4 +68,4 @@ def test_simple():
     assert test_results[0].is_success
 
     assert get_call_time(hello_id) == 1  # directly called
-    assert get_call_time(stub_id) == 0  # stubed by artest, should not be called
+    assert get_call_time(stub_id) == 0  # stubbed by artest, should not be called

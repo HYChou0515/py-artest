@@ -3,11 +3,11 @@
 artest is a Python package designed for automated regression testing, providing decorators and utilities for efficient test case management.
 
 Modules:
-    - artest: Contains decorators for automatic regression and stubing.
+    - artest: Contains decorators for automatic regression and stubbing.
 
 Public Objects:
     - autoreg: Decorator for creating regression tests during runtime.
-    - autostub: Decorator for automatic stubing during test execution.
+    - autostub: Decorator for automatic stubbing during test execution.
 
 Version: 0.2.3
 """
