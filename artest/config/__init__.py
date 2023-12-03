@@ -59,16 +59,16 @@ __all__ = [
 ]
 
 from ..types import MessageRecord
-from .func_repo import get_on_func_id_duplicate, set_on_func_id_duplicate
-from .id_generator import get_test_case_id_generator, set_test_case_id_generator
-from .match_result import get_is_equal, set_is_equal
-from .paths import (
+from ._func_repo import get_on_func_id_duplicate, set_on_func_id_duplicate
+from ._id_generator import get_test_case_id_generator, set_test_case_id_generator
+from ._match_result import get_is_equal, set_is_equal
+from ._paths import (
     get_artest_root,
     get_function_root_path,
     set_artest_root,
     set_function_root_path,
 )
-from .pickler import (
+from ._pickler import (
     get_assert_pickled_object_on_case_mode,
     get_on_pickle_dump_error,
     get_pickler,
@@ -76,7 +76,7 @@ from .pickler import (
     set_on_pickle_dump_error,
     set_pickler,
 )
-from .printer import (
+from ._printer import (
     get_message_formatter,
     get_printer,
     get_stringify_obj,
