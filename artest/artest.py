@@ -249,14 +249,14 @@ class _TestCaseSerializer:
         """
         return self.save(inputs, path)
 
-    def save_func(self, func, path):
+    def save_func(self, fcid_tcid, path):
         """Save the function to a file.
 
         Args:
-            func: The function to be saved.
+            fcid_tcid: tuple of function ID and test case ID.
             path: Path to save the function.
         """
-        return self.save(func, path)
+        return self.save(fcid_tcid, path)
 
     def read(self, path):
         """Read a serialized object from a file.
@@ -416,12 +416,8 @@ def autoreg(
             f_inputs = _build_path(func_id, tcid, "inputs")
             f_outputs = _build_path(func_id, tcid, "outputs")
             f_func = _build_path(func_id, tcid, "func")
-            if inspect.ismethod(func):
-                _serializer.save_inputs(((func.__self__,) + args, kwargs), f_inputs)
-                _serializer.save_func(func.__func__, f_func)
-            else:
-                _serializer.save_inputs((args, kwargs), f_inputs)
-                _serializer.save_func(func, f_func)
+            _serializer.save_inputs((args, kwargs), f_inputs)
+            _serializer.save_func((func_id, tcid), f_func)
 
             output = _get_func_output(func, args, kwargs)
             _serializer.save(output, f_outputs)
