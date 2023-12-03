@@ -1,6 +1,5 @@
 import inspect
 import itertools
-from pickle import PicklingError
 
 import pytest
 
@@ -43,16 +42,21 @@ def returns_some_lambda(n):
 
 @make_test_autoreg()
 @make_cleanup_test_case_files(func_id, _tcid)
-def test_standard_pickle_unpicklable():
+def test_standard_pickle_unpicklable_output_should_fail():
     import pickle
 
     set_pickler(pickle)
 
-    returns_some_lambda(5)
-
-    set_on_pickle_dump_error(PicklingError, OnPickleDumpErrorAction.RAISE)
-    with pytest.raises(PicklingError) as exc_info:
+    with pytest.warns(UserWarning) as record:
         returns_some_lambda(5)
+        assert len(record.list) == 1
+        assert "Can't pickle" in str(record.list[0].message)
+
+    set_on_pickle_dump_error(AttributeError, OnPickleDumpErrorAction.RAISE)
+
+    with pytest.raises(AttributeError) as exc_info:
+        returns_some_lambda(5)
+
     assert "Can't pickle" in str(exc_info.value)
 
 

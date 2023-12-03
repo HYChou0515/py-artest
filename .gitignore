@@ -160,8 +160,10 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
 
+# artest
 .python-version
 .artest/
+.test-only*
 
 # mac
 .DS_Store
