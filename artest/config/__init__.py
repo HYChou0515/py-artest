@@ -23,6 +23,8 @@ Functions and Modules Available:
     - set_printer(): Sets the function for printing the message.
     - get_artest_root(): Gets the root path of artest.
     - set_artest_root(): Sets the root path of artest.
+    - get_on_func_id_duplicate(): Gets the action when a duplicate func_id is found.
+    - set_on_func_id_duplicate(): Sets the action when a duplicate func_id is found.
     - MessageRecord: Represents a message record.
 
 Submodules:
@@ -52,9 +54,12 @@ __all__ = [
     "MessageRecord",
     "set_artest_root",
     "get_artest_root",
+    "get_on_func_id_duplicate",
+    "set_on_func_id_duplicate",
 ]
 
 from ..types import MessageRecord
+from .func_repo import get_on_func_id_duplicate, set_on_func_id_duplicate
 from .id_generator import get_test_case_id_generator, set_test_case_id_generator
 from .match_result import get_is_equal, set_is_equal
 from .paths import (

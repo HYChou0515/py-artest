@@ -72,7 +72,6 @@ class OnFuncIdDuplicateAction(str, Enum):
     """Actions enums on function id duplicate."""
 
     RAISE = "raise"
-    REPLACE = "replace"
     IGNORE = "ignore"
 
 

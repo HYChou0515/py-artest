@@ -27,6 +27,7 @@ from artest.config import (
     get_assert_pickled_object_on_case_mode,
     get_function_root_path,
     get_is_equal,
+    get_on_func_id_duplicate,
     get_on_pickle_dump_error,
     get_pickler,
     get_test_case_id_generator,
@@ -46,6 +47,14 @@ _overload_on_duplicate_var = ContextVar("__ARTEST_ON_DUPLICATE__", default=None)
 _fcid_var = ContextVar("__ARTEST_FCID__")
 _tcid_var = ContextVar("__ARTEST_TCID__")
 _artest_mode_var = ContextVar("__ARTEST_MODE__", default=ArtestMode.USE_ENV)
+
+
+def _get_on_duplicate(on_duplicate: Optional[OnFuncIdDuplicateAction]):
+    if _overload_on_duplicate_var.get() is not None:
+        on_duplicate = _overload_on_duplicate_var.get()
+    if on_duplicate is None:
+        on_duplicate = get_on_func_id_duplicate()
+    return on_duplicate
 
 
 def _extract_autoreg_assigned_variable(node: ast.AST) -> Optional[str]:
@@ -181,7 +190,9 @@ class _FunctionIdRepository(MutableMapping):
                     for class_name, func_name in artest_functions:
                         if class_name is None:
                             func = getattr(mod, func_name, None)
-                            if func is not None and func.__artest_func_id__ == key:
+                            if func is None:
+                                continue
+                            if getattr(func, "__artest_func_id__", None) == key:
                                 return func
                         else:
                             cls = getattr(mod, class_name, None)
@@ -191,13 +202,18 @@ class _FunctionIdRepository(MutableMapping):
                                     continue
                                 elif inspect.isdatadescriptor(func):
                                     func = func.fget
-                                    if func.__artest_func_id__ == key:
+                                    if getattr(func, "__artest_func_id__", None) == key:
                                         return func
                                 elif inspect.ismethod(func):
-                                    if func.__func__.__artest_func_id__ == key:
+                                    if (
+                                        getattr(
+                                            func.__func__, "__artest_func_id__", None
+                                        )
+                                        == key
+                                    ):
                                         return func.__func__
                                 else:
-                                    if func.__artest_func_id__ == key:
+                                    if getattr(func, "__artest_func_id__", None) == key:
                                         return func
             return None
 
@@ -410,7 +426,7 @@ def _find_input_hash(func, args, kwargs):
 def autoreg(
     func_id: str,
     *,
-    on_duplicate: OnFuncIdDuplicateAction = OnFuncIdDuplicateAction.RAISE,
+    on_duplicate: Optional[OnFuncIdDuplicateAction] = None,
 ):
     """Auto Regression Test Decorator.
 
@@ -442,6 +458,8 @@ def autoreg(
 
     Args:
         func_id (str): The identifier for the function.
+        on_duplicate (OnFuncIdDuplicateAction): The action when a duplicate func_id is found.
+            If None, the default action is used.
 
     Returns:
         function: Decorated function.
@@ -449,12 +467,14 @@ def autoreg(
     Raises:
         ValueError: If the provided function ID is already registered in autoreg.
     """
-    if _overload_on_duplicate_var.get() is not None:
-        on_duplicate = _overload_on_duplicate_var.get()
+    on_duplicate = _get_on_duplicate(on_duplicate)
+
     func_id = str(func_id)
     if func_id in _AUTOREG_REGISTERED:
         if on_duplicate == OnFuncIdDuplicateAction.RAISE:
             raise ValueError(f"Function {func_id} is already registered in autoreg.")
+        # if on_duplicate == OnFuncIdDuplicateAction.IGNORE:
+        #     return lambda func: func
     else:
         _AUTOREG_REGISTERED.add(func_id)
 
@@ -508,7 +528,7 @@ _stub_counter = {}
 def autostub(
     func_id: str,
     *,
-    on_duplicate: OnFuncIdDuplicateAction = OnFuncIdDuplicateAction.RAISE,
+    on_duplicate: Optional[OnFuncIdDuplicateAction] = None,
 ):
     """Autostub Decorator.
 
@@ -517,6 +537,8 @@ def autostub(
 
     Args:
         func_id (str): The identifier for the function.
+        on_duplicate (OnFuncIdDuplicateAction): The action when a duplicate func_id is found.
+            If None, the default action is used.
 
     Returns:
         function: Decorated function.
@@ -524,12 +546,13 @@ def autostub(
     Raises:
         ValueError: If the provided function ID is already registered in autostub.
     """
-    if _overload_on_duplicate_var.get() is not None:
-        on_duplicate = _overload_on_duplicate_var.get()
+    on_duplicate = _get_on_duplicate(on_duplicate)
     func_id = str(func_id)
     if func_id in _AUTOSTUB_REGISTERED:
         if on_duplicate == OnFuncIdDuplicateAction.RAISE:
             raise ValueError(f"Function {func_id} is already registered in autostub.")
+    #         if on_duplicate == OnFuncIdDuplicateAction.IGNORE:
+    #             return lambda func: func
     else:
         _AUTOSTUB_REGISTERED.add(func_id)
 
