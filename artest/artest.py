@@ -27,12 +27,13 @@ from artest.config import (
     get_assert_pickled_object_on_case_mode,
     get_function_root_path,
     get_is_equal,
+    get_message_formatter,
     get_on_func_id_duplicate,
     get_on_pickle_dump_error,
     get_pickler,
+    get_printer,
     get_test_case_id_generator,
 )
-from artest.config.printer import get_message_formatter, get_printer
 from artest.types import (
     ArtestMode,
     FunctionOutput,
