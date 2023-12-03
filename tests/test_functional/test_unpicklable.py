@@ -15,9 +15,13 @@ from artest.config import (
 from artest.types import OnPickleDumpErrorAction
 from tests.helper import (
     assert_test_case_files_exist,
+    call_time_path,
+    get_call_time,
     make_callback,
+    make_cleanup_file,
     make_cleanup_test_case_files,
     make_test_autoreg,
+    set_call_time,
 )
 
 _tcid = "temp-test"
@@ -33,11 +37,51 @@ gen1, gen2 = itertools.tee(gen(), 2)
 set_test_case_id_generator(gen1)
 
 func_id = "d1ca94d298f849bdadb10dd80bb99a0b"
+another_lambda_id = "67d1b3a8bb4a417a9cf2c70cf559b922"
 
 
 @autoreg(func_id)
 def returns_some_lambda(n):
     return lambda x: x**3 + x**2 - 5 * x + n
+
+
+another_lambda = autoreg(another_lambda_id)(
+    lambda x: x * 2
+    + (
+        0
+        if (set_call_time(another_lambda_id, get_call_time(another_lambda_id) + 1))
+        else 1
+    )
+)
+
+
+@make_test_autoreg()
+@make_cleanup_test_case_files(another_lambda_id, _tcid)
+@make_cleanup_file(call_time_path(another_lambda_id))
+def test_standard_pickle_unpicklable_function_should_pass():
+    set_call_time(another_lambda_id, 0)
+
+    tcid = next(gen2)
+
+    import pickle
+
+    set_pickler(pickle)
+
+    assert another_lambda(5) == 11
+    assert get_call_time(another_lambda_id) == 1  # directly called
+
+    assert_test_case_files_exist(another_lambda_id, tcid)
+
+    set_call_time(another_lambda_id, 0)
+
+    test_results = artest.artest.main()
+
+    assert len(test_results) == 1
+    assert test_results[0].fcid == another_lambda_id
+    assert test_results[0].tcid == tcid
+    assert test_results[0].is_success
+
+    assert get_call_time(another_lambda_id) == 1  # directly called
 
 
 @make_test_autoreg()
