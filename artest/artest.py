@@ -20,6 +20,7 @@ from collections.abc import MutableMapping
 from contextvars import ContextVar
 from functools import wraps
 from glob import glob
+from typing import Optional
 
 from artest.config import (
     get_artest_root,
@@ -45,6 +46,55 @@ _overload_on_duplicate_var = ContextVar("__ARTEST_ON_DUPLICATE__", default=None)
 _fcid_var = ContextVar("__ARTEST_FCID__")
 _tcid_var = ContextVar("__ARTEST_TCID__")
 _artest_mode_var = ContextVar("__ARTEST_MODE__", default=ArtestMode.USE_ENV)
+
+
+def _extract_autoreg_assigned_variable(node: ast.AST) -> Optional[str]:
+    """Identifies and retrieves the assigned variable name from an autoreg function call within an assignment.
+
+    This function examines an AST node representing an assignment operation.
+    If the assignment is of a variable to a direct call to autoreg, it returns the assigned variable name.
+
+    Specifically, it checks if the node represents an assignment in the form of `var = autoreg(func_id)(func)`.
+
+    Examples returning the assigned variable name:
+    - `var = autoreg(func_id)(func)`
+
+    Counterexamples returning None:
+    - `r = autoreg(func_id); var = r(func)`
+    - `var.attr = autoreg(func_id)(func)`
+    - `var1, var2 = autoreg(func1_id)(func1), autoreg(func1_id)(func2)`
+
+    Regarding the AST structure:
+    - The node type is `ast.Assign`.
+    - The `node.value` is of type `ast.Call`.
+    - The `node.value.func` is also of type `ast.Call`.
+    - The `node.value.func.func` is of type `ast.Name`.
+    - The `node.value.func.func.id` corresponds to `autoreg`.
+    """
+    if not isinstance(node, ast.Assign):
+        # not an assignment
+        return None
+
+    if not (
+        isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Call)
+        and isinstance(node.value.func.func, ast.Name)
+        and node.value.func.func.id == "autoreg"
+    ):
+        # the right hand side is not a in the form of `autoreg(func_id)(func)`
+        return None
+
+    node_target = node.targets
+    if not (len(node_target) == 1):
+        # the left hand side is not one item
+        return None
+
+    node_target = node_target[0]
+    if not (isinstance(node_target, ast.Name)):
+        # the left hand side is not a variable name
+        return None
+
+    return node_target.id
 
 
 def get_artest_decorators(target, *, target_is_source=False):
@@ -80,6 +130,10 @@ def get_artest_decorators(target, *, target_is_source=False):
                 for child in node.body:
                     if isinstance(child, ast.FunctionDef):
                         child.parent = node
+            var_name = _extract_autoreg_assigned_variable(node)
+            if var_name is not None:
+                autoreg_funcs.append((None, var_name))
+
     except SyntaxError:
         pass
     return autoreg_funcs
@@ -249,14 +303,14 @@ class _TestCaseSerializer:
         """
         return self.save(inputs, path)
 
-    def save_func(self, func, path):
+    def save_func(self, fcid_tcid, path):
         """Save the function to a file.
 
         Args:
-            func: The function to be saved.
+            fcid_tcid: tuple of function ID and test case ID.
             path: Path to save the function.
         """
-        return self.save(func, path)
+        return self.save(fcid_tcid, path)
 
     def read(self, path):
         """Read a serialized object from a file.
@@ -416,12 +470,8 @@ def autoreg(
             f_inputs = _build_path(func_id, tcid, "inputs")
             f_outputs = _build_path(func_id, tcid, "outputs")
             f_func = _build_path(func_id, tcid, "func")
-            if inspect.ismethod(func):
-                _serializer.save_inputs(((func.__self__,) + args, kwargs), f_inputs)
-                _serializer.save_func(func.__func__, f_func)
-            else:
-                _serializer.save_inputs((args, kwargs), f_inputs)
-                _serializer.save_func(func, f_func)
+            _serializer.save_inputs((args, kwargs), f_inputs)
+            _serializer.save_func((func_id, tcid), f_func)
 
             output = _get_func_output(func, args, kwargs)
             _serializer.save(output, f_outputs)
