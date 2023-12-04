@@ -27,6 +27,7 @@ Functions and Modules Available:
     - set_on_func_id_duplicate(): Sets the action when a duplicate func_id is found.
     - get_test_case_quota(): Gets the test case quota.
     - set_test_case_quota(): Sets the test case quota.
+    - reset_all_test_case_quota(): Resets all test case quota.
 
 """
 
@@ -56,6 +57,7 @@ __all__ = [
     "set_on_func_id_duplicate",
     "get_test_case_quota",
     "set_test_case_quota",
+    "reset_all_test_case_quota",
 ]
 
 from ..types import MessageRecord
@@ -86,5 +88,6 @@ from ._printer import (
 )
 from ._tc_quota import (
     get_test_case_quota,
+    reset_all_test_case_quota,
     set_test_case_quota,
 )

@@ -24,17 +24,13 @@ from tests.helper import (
     set_call_time,
 )
 
-_tcid = "temp-test"
-
 
 def gen():
+    i = 0
     while True:
-        yield _tcid
+        yield str(i)
+        i += 1
 
-
-gen1, gen2 = itertools.tee(gen(), 2)
-
-set_test_case_id_generator(gen1)
 
 func_id = "d1ca94d298f849bdadb10dd80bb99a0b"
 another_lambda_id = "67d1b3a8bb4a417a9cf2c70cf559b922"
@@ -56,9 +52,12 @@ another_lambda = autoreg(another_lambda_id)(
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(another_lambda_id, _tcid)
+@make_cleanup_test_case_files(another_lambda_id, None)
 @make_cleanup_file(call_time_path(another_lambda_id))
 def test_standard_pickle_unpicklable_function_should_pass():
+    gen1, gen2 = itertools.tee(gen(), 2)
+    set_test_case_id_generator(gen1)
+
     set_call_time(another_lambda_id, 0)
 
     tcid = next(gen2)
@@ -85,7 +84,7 @@ def test_standard_pickle_unpicklable_function_should_pass():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(func_id, _tcid)
+@make_cleanup_test_case_files(func_id, None)
 def test_standard_pickle_unpicklable_output_should_fail():
     import pickle
 
@@ -105,7 +104,7 @@ def test_standard_pickle_unpicklable_output_should_fail():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(func_id, _tcid)
+@make_cleanup_test_case_files(func_id, None)
 def test_good_when_serialize_bad_when_deserialize():
     import dill
 
@@ -136,9 +135,14 @@ def custom_is_equal(a, b):
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(func_id, _tcid)
+@make_cleanup_test_case_files(func_id, None)
 @make_callback(lambda: set_is_equal(None))
 def test_good_when_serialize_good_when_deserialize():
+    gen1, gen2 = itertools.tee(gen(), 2)
+    set_test_case_id_generator(gen1)
+
+    _tcid = next(gen2)
+
     set_is_equal(custom_is_equal)
 
     import dill

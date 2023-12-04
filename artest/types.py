@@ -18,7 +18,7 @@ Enums:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import NamedTuple, Optional
+from typing import Literal, NamedTuple, Optional, Union
 
 
 class FunctionOutputType(str, Enum):
@@ -82,3 +82,14 @@ class ArtestMode(str, Enum):
     CASE = "case"
     TEST = "test"
     USE_ENV = "use_env"
+
+
+@dataclass
+class ConfigTestCaseQuota:
+    """Config for test case quota.
+
+    Attributes:
+        max_count (Optional[Union[int, Literal['inf']]]): The max count of test cases.
+    """
+
+    max_count: Optional[Union[int, Literal["inf"]]] = None
