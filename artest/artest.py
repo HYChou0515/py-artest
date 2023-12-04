@@ -32,10 +32,13 @@ from artest.config import (
     get_on_pickle_dump_error,
     get_pickler,
     get_printer,
-    get_test_case_id_generator, get_test_case_quota,
+    get_test_case_id_generator,
+    get_test_case_quota,
+    set_test_case_quota,
 )
 from artest.types import (
     ArtestMode,
+    ConfigTestCaseQuota,
     FunctionOutput,
     FunctionOutputType,
     MessageRecord,
@@ -428,6 +431,7 @@ def autoreg(
     func_id: str,
     *,
     on_duplicate: Optional[OnFuncIdDuplicateAction] = None,
+    quota: Optional[ConfigTestCaseQuota] = None,
 ):
     """Auto Regression Test Decorator.
 
@@ -461,6 +465,7 @@ def autoreg(
         func_id (str): The identifier for the function.
         on_duplicate (OnFuncIdDuplicateAction): The action when a duplicate func_id is found.
             If None, the default action is used.
+        quota (ConfigTestCaseQuota): The test case quota configuration.
 
     Returns:
         function: Decorated function.
@@ -474,10 +479,11 @@ def autoreg(
     if func_id in _AUTOREG_REGISTERED:
         if on_duplicate == OnFuncIdDuplicateAction.RAISE:
             raise ValueError(f"Function {func_id} is already registered in autoreg.")
-        # if on_duplicate == OnFuncIdDuplicateAction.IGNORE:
-        #     return lambda func: func
     else:
         _AUTOREG_REGISTERED.add(func_id)
+
+    if quota is not None:
+        set_test_case_quota(func_id, quota=quota)
 
     def _autoreg(func):
         func.__artest_func_id__ = func_id
@@ -486,7 +492,7 @@ def autoreg(
             return func(*args, **kwargs)
 
         def case_mode(*args, **kwargs):
-            if not get_test_case_quota().can_add_test_case(func_id):
+            if not get_test_case_quota(func_id).can_add_test_case(func_id):
                 return disable_mode(*args, **kwargs)
             tcid = next(get_test_case_id_generator())
             _test_stack.append((func_id, tcid))
@@ -636,28 +642,7 @@ def autostub(
     return _autostub
 
 
-def main():
-    """Execute Automated Regression Testing.
-
-    This function orchestrates the automated regression testing process by emulating the testing environment
-    and comparing expected outputs with the actual function outputs saved in serialized files.
-    The function reads test cases from a predefined directory structure, executes the associated function,
-    and compares the outputs.
-
-    It cycles through each test case directory, retrieves inputs, expected outputs, and the function,
-    then executes the function using the inputs and validates the output against the saved expected output.
-
-    Note:
-        The function relies on the TestCaseSerializer for serialization and deserialization.
-
-    Raises:
-        ValueError: If the inputs, outputs, or func files are missing for a test case directory.
-                    Or if an exception occurs during function execution.
-
-    """
-    _stub_counter.clear()
-    artest_mode_reset_token = _artest_mode_var.set(ArtestMode.TEST)
-
+def _main():
     test_results = []
     for path in glob(os.path.join(get_artest_root(), "*", "*")):
         fcid, tcid = path.split(os.path.sep)[-2:]
@@ -738,16 +723,43 @@ def main():
 
         _fcid_var.reset(fcid_reset_token)
         _tcid_var.reset(tcid_reset_token)
-
-    _artest_mode_var.reset(artest_mode_reset_token)
-
-    if all([r.is_success for r in test_results]):
-        get_printer()(f"Passed ({len(test_results)}/{len(test_results)})")
-    else:
-        get_printer()(
-            f"Failed ({sum([r.is_success for r in test_results])}/{len(test_results)})"
-        )
     return test_results
+
+
+def main():
+    """Execute Automated Regression Testing.
+
+    This function orchestrates the automated regression testing process by emulating the testing environment
+    and comparing expected outputs with the actual function outputs saved in serialized files.
+    The function reads test cases from a predefined directory structure, executes the associated function,
+    and compares the outputs.
+
+    It cycles through each test case directory, retrieves inputs, expected outputs, and the function,
+    then executes the function using the inputs and validates the output against the saved expected output.
+
+    Note:
+        The function relies on the TestCaseSerializer for serialization and deserialization.
+
+    Raises:
+        ValueError: If the inputs, outputs, or func files are missing for a test case directory.
+                    Or if an exception occurs during function execution.
+
+    """
+    _stub_counter.clear()
+    artest_mode_reset_token = _artest_mode_var.set(ArtestMode.TEST)
+    try:
+        test_results = _main()
+        if all([r.is_success for r in test_results]):
+            get_printer()(f"Passed ({len(test_results)}/{len(test_results)})")
+        else:
+            get_printer()(
+                f"Failed ({sum([r.is_success for r in test_results])}/{len(test_results)})"
+            )
+        return test_results
+    except Exception as e:
+        raise e
+    finally:
+        _artest_mode_var.reset(artest_mode_reset_token)
 
 
 if __name__ == "__main__":
