@@ -57,16 +57,17 @@ def set_call_time(id, call_time):
         pickle.dump(call_time, f)
 
 
-def assert_test_case_files_exist(fcid, tcid):
+def assert_test_case_files_exist(fcid, tcid, *, assert_not_exist=False):
     """Asserts the existence of test case files.
 
     Args:
         fcid (str): The directory for the test case.
         tcid (str): The test case ID.
+        assert_not_exist (bool, optional): Whether to assert that the files do not exist.
     """
-    assert os.path.exists(f"./.artest/{fcid}/{tcid}/inputs")
-    assert os.path.exists(f"./.artest/{fcid}/{tcid}/outputs")
-    assert os.path.exists(f"./.artest/{fcid}/{tcid}/func")
+    assert assert_not_exist ^ os.path.exists(f"./.artest/{fcid}/{tcid}/inputs")
+    assert assert_not_exist ^ os.path.exists(f"./.artest/{fcid}/{tcid}/outputs")
+    assert assert_not_exist ^ os.path.exists(f"./.artest/{fcid}/{tcid}/func")
 
 
 def cleanup_test_case_files(fcid, tcid):

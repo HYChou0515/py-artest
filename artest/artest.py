@@ -32,7 +32,7 @@ from artest.config import (
     get_on_pickle_dump_error,
     get_pickler,
     get_printer,
-    get_test_case_id_generator,
+    get_test_case_id_generator, get_test_case_quota,
 )
 from artest.types import (
     ArtestMode,
@@ -486,6 +486,8 @@ def autoreg(
             return func(*args, **kwargs)
 
         def case_mode(*args, **kwargs):
+            if not get_test_case_quota().can_add_test_case(func_id):
+                return disable_mode(*args, **kwargs)
             tcid = next(get_test_case_id_generator())
             _test_stack.append((func_id, tcid))
             f_inputs = _build_path(func_id, tcid, "inputs")

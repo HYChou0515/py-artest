@@ -25,11 +25,9 @@ Functions and Modules Available:
     - set_artest_root(): Sets the root path of artest.
     - get_on_func_id_duplicate(): Gets the action when a duplicate func_id is found.
     - set_on_func_id_duplicate(): Sets the action when a duplicate func_id is found.
-    - MessageRecord: Represents a message record.
+    - get_test_case_quota(): Gets the test case quota.
+    - set_test_case_quota(): Sets the test case quota.
 
-Submodules:
-    - id_generator: Module for test case ID generation utilities.
-    - pickler: Module for pickling and error handling utilities.
 """
 
 __all__ = [
@@ -56,6 +54,8 @@ __all__ = [
     "get_artest_root",
     "get_on_func_id_duplicate",
     "set_on_func_id_duplicate",
+    "get_test_case_quota",
+    "set_test_case_quota",
 ]
 
 from ..types import MessageRecord
@@ -83,4 +83,8 @@ from ._printer import (
     set_message_formatter,
     set_printer,
     set_stringify_obj,
+)
+from ._tc_quota import (
+    get_test_case_quota,
+    set_test_case_quota,
 )
