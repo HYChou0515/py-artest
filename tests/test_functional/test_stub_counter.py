@@ -3,7 +3,7 @@ import itertools
 import artest.artest
 from artest import autoreg, autostub
 from artest.config import set_test_case_id_generator
-from artest.types import OnFuncIdDuplicateAction
+from artest.types import OnFuncIdDuplicateAction, StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
     make_cleanup_test_case_files,
@@ -57,4 +57,4 @@ def test_stub_counter():
     assert len(test_results) == 1
     assert test_results[0].fcid == "reg1"
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS

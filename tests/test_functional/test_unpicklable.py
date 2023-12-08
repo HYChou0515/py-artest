@@ -12,7 +12,7 @@ from artest.config import (
     set_pickler,
     set_test_case_id_generator,
 )
-from artest.types import OnPickleDumpErrorAction
+from artest.types import OnPickleDumpErrorAction, StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
     call_time_path,
@@ -78,7 +78,7 @@ def test_standard_pickle_unpicklable_function_should_pass():
     assert len(test_results) == 1
     assert test_results[0].fcid == another_lambda_id
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS
 
     assert get_call_time(another_lambda_id) == 1  # directly called
 
@@ -171,4 +171,4 @@ def test_good_when_serialize_good_when_deserialize():
     assert len(test_results) == 1
     assert test_results[0].fcid == func_id
     assert test_results[0].tcid == _tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS

@@ -8,6 +8,7 @@ from artest.config import (
     set_stringify_obj,
     set_test_case_id_generator,
 )
+from artest.types import MessageRecord, StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
     make_callback,
@@ -40,9 +41,9 @@ def custom_printer(message):
     _message.append(message)
 
 
-def custom_message_formatter(message_record):
+def custom_message_formatter(message_record: MessageRecord):
     s = []
-    if message_record.is_success:
+    if message_record.result_status == StatusTestResult.SUCCESS:
         s.append(f"{'SUCCESS':10s}")
     else:
         s.append(f"{'FAIL':10s}")
@@ -98,14 +99,18 @@ def test_custom_message_formatter():
     assert len(results) == 1
     assert results[0].fcid == hello1_id
     assert results[0].tcid == tcid
-    assert not results[0].is_success
+    assert not results[0].status == StatusTestResult.SUCCESS
 
-    assert len(_message) == 2
+    assert len(_message) == 3
     assert (
         _message[0]
         == f"custom: FAIL       fc={hello1_id} tc=temp-test msg=Outputs not matched."
     )
-    assert _message[1] == "Failed (0/1)"
+    assert _message[1] == "Failed"
+    assert (
+        _message[2]
+        == "Test results: 0 passed, 1 failed, 0 skipped, 0 error, 0 refreshed."
+    )
 
 
 @make_test_autoreg()
@@ -136,14 +141,18 @@ def test_custom_stringify_obj():
     assert len(results) == 1
     assert results[0].fcid == hello2_id
     assert results[0].tcid == tcid
-    assert not results[0].is_success
+    assert not results[0].status == StatusTestResult.SUCCESS
 
-    assert len(_message) == 2
+    assert len(_message) == 3
     assert (
         _message[0]
         == f"ARTEST: FAIL       fc={hello2_id} tc=temp-test msg=Outputs not matched. expected: return [Hello World!] actual: return [Hello World! This is a different string.]"
     )
-    assert _message[1] == "Failed (0/1)"
+    assert _message[1] == "Failed"
+    assert (
+        _message[2]
+        == "Test results: 0 passed, 1 failed, 0 skipped, 0 error, 0 refreshed."
+    )
 
 
 @make_test_autoreg()
@@ -172,11 +181,15 @@ def test_default_stringify_obj():
     assert len(results) == 1
     assert results[0].fcid == hello3_id
     assert results[0].tcid == tcid
-    assert not results[0].is_success
+    assert not results[0].status == StatusTestResult.SUCCESS
 
-    assert len(_message) == 2
+    assert len(_message) == 3
     assert (
         _message[0]
         == f"ARTEST: FAIL       fc={hello3_id} tc=temp-test msg=Output type mismatch: raise != return expected: return 'Hello World!' actual: raise ValueError('This should not be called')"
     )
-    assert _message[1] == "Failed (0/1)"
+    assert _message[1] == "Failed"
+    assert (
+        _message[2]
+        == "Test results: 0 passed, 1 failed, 0 skipped, 0 error, 0 refreshed."
+    )

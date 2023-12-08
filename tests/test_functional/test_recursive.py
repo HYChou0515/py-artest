@@ -3,6 +3,7 @@ import itertools
 import artest.artest
 from artest import autoreg, autostub
 from artest.config import set_test_case_id_generator
+from artest.types import StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
     call_time_path,
@@ -82,7 +83,7 @@ def test_recursive():
     assert len(test_results) == 2
     assert {tr.fcid for tr in test_results} == {hello_id, hello1_id}
     assert {tr.tcid for tr in test_results} == {tcid}
-    assert {tr.is_success for tr in test_results} == {True}
+    assert {tr.status == StatusTestResult.SUCCESS for tr in test_results} == {True}
 
     assert get_call_time(hello_id) == 1  # directly called
     assert get_call_time(hello1_id) == 2  # directly called + called once by hello

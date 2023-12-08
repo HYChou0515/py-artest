@@ -5,6 +5,7 @@ import pytest
 import artest.artest
 from artest import autoreg, autostub
 from artest.config import set_test_case_id_generator
+from artest.types import StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
     call_time_path,
@@ -89,7 +90,7 @@ def test_autoreg_exception():
     assert len(test_results) == 1
     assert test_results[0].fcid == hello_id
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS
 
     assert get_call_time(hello_id) == 1  # directly called
     assert get_call_time(stub_id) == 0  # stubbed by artest, should not be called
@@ -122,7 +123,7 @@ def test_autostub_exception():
     assert len(test_results) == 1
     assert test_results[0].fcid == hello2_id
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS
 
     assert get_call_time(hello2_id) == 1  # directly called
     assert get_call_time(stub_id) == 0  # stubbed by artest, should not be called
@@ -153,6 +154,6 @@ def test_autostub_exception2():
     assert len(test_results) == 1
     assert test_results[0].fcid == hello3_id
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS
     assert get_call_time(hello3_id) == 1  # directly called
     assert get_call_time(stub_id) == 0  # stubbed by artest, should not be called

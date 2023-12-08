@@ -8,7 +8,7 @@ from artest.config import (
     set_test_case_id_generator,
     set_test_case_quota,
 )
-from artest.types import ConfigTestCaseQuota
+from artest.types import ConfigTestCaseQuota, StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
     call_time_path,
@@ -85,7 +85,7 @@ def test_fc_tc_quota_max_count():
     assert fcid_counter[func2_id] == 2
 
     assert {tr.tcid for tr in test_results} == {tcid[i] for i in range(5)}
-    assert {tr.is_success for tr in test_results} == {True}
+    assert {tr.status == StatusTestResult.SUCCESS for tr in test_results} == {True}
 
     assert get_call_time(hello_id) == 3
     assert get_call_time(func2_id) == 2
@@ -121,6 +121,6 @@ def test_tc_quota_max_count():
     assert len(test_results) == 2
     assert {tr.fcid for tr in test_results} == {hello_id}
     assert {tr.tcid for tr in test_results} == {tcid[0], tcid[1]}
-    assert {tr.is_success for tr in test_results} == {True}
+    assert {tr.status == StatusTestResult.SUCCESS for tr in test_results} == {True}
 
     assert get_call_time(hello_id) == 2

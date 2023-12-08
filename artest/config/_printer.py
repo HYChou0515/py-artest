@@ -10,7 +10,7 @@ Functions and Classes:
     - MessageRecord: Represents a message record.
 
 """
-from artest.types import MessageRecord
+from artest.types import MessageRecord, StatusTestResult
 
 
 def _default_stringify_obj(obj):
@@ -53,15 +53,12 @@ def _default_message_formatter(message_record: MessageRecord):
         str: The formatted message.
     """
     s = []
-    if message_record.is_success:
-        s.append(f"{'SUCCESS':10s}")
-    else:
-        s.append(f"{'FAIL':10s}")
+    s.append(f"{message_record.result_status:10s}")
     s.append(f"fc={message_record.fcid}")
     s.append(f"tc={message_record.tcid}")
     if message_record.message:
         s.append(f"msg={message_record.message}")
-    if not message_record.is_success:
+    if message_record.result_status == StatusTestResult.FAIL:
         if message_record.expected_outputs:
             s.append(
                 f"expected: {message_record.expected_outputs.output_type} {get_stringify_obj()(message_record.expected_outputs.output)}"

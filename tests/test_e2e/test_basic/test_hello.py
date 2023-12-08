@@ -4,6 +4,7 @@ import shutil
 
 import artest.artest
 from artest.config import set_test_case_id_generator
+from artest.types import StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
     make_cleanup_file,
@@ -47,4 +48,4 @@ def test_change_should_fail():
     assert len(results) == 1
     assert results[0].fcid == hello_id
     assert results[0].tcid == tcid
-    assert not results[0].is_success
+    assert not results[0].status == StatusTestResult.SUCCESS

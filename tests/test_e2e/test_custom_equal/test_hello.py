@@ -4,6 +4,7 @@ import shutil
 
 import artest.artest
 from artest.config import set_is_equal, set_test_case_id_generator
+from artest.types import StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
     make_callback,
@@ -55,4 +56,4 @@ def test_custom_equal():
     assert len(results) == 1
     assert results[0].fcid == hello_id
     assert results[0].tcid == tcid
-    assert results[0].is_success
+    assert results[0].status == StatusTestResult.SUCCESS

@@ -6,7 +6,7 @@ import pytest
 
 import artest
 from artest.config import set_on_func_id_duplicate, set_test_case_id_generator
-from artest.types import OnFuncIdDuplicateAction
+from artest.types import OnFuncIdDuplicateAction, StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
     make_callback,
@@ -82,7 +82,7 @@ def test_dup1_when_dup_action_is_ignored():
     assert len(results) == 1
     assert results[0].fcid == dup_id
     assert results[0].tcid == _tcid
-    assert results[0].is_success
+    assert results[0].status == StatusTestResult.SUCCESS
 
 
 @make_test_autoreg()
@@ -106,5 +106,5 @@ def test_dup2_when_dup_action_is_ignored():
     # registered as dup1 (the first one).
     # So the result will be failed because the saved output is
     # from dup2.
-    assert not results[0].is_success
+    assert not results[0].status == StatusTestResult.SUCCESS
     assert results[0].message == "Outputs not matched."
