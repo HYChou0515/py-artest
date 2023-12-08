@@ -16,6 +16,7 @@ import inspect
 import os
 import sys
 import warnings
+from collections import Counter
 from collections.abc import MutableMapping
 from contextvars import ContextVar
 from functools import wraps
@@ -37,6 +38,7 @@ from artest.config import (
     set_test_case_quota,
 )
 from artest.types import (
+    ArtestConfig,
     ArtestMode,
     ConfigTestCaseQuota,
     FunctionOutput,
@@ -44,6 +46,7 @@ from artest.types import (
     MessageRecord,
     OnFuncIdDuplicateAction,
     OnPickleDumpErrorAction,
+    StatusTestResult,
     TestResult,
 )
 
@@ -642,91 +645,210 @@ def autostub(
     return _autostub
 
 
-def _main():
+class _StopTest(Exception):
+    def __init__(self, result):
+        self.result = result
+
+
+class _TestRunner:
+    """Test runner."""
+
+    def __init__(self, func_id, tcid, artest_config: ArtestConfig):
+        self.func_id = func_id
+        self.tcid = tcid
+        self.artest_config = artest_config
+
+        self.f_inputs = _build_path(self.func_id, self.tcid, "inputs")
+        self.f_func = _build_path(self.func_id, self.tcid, "func")
+        self.f_outputs = _build_path(self.func_id, self.tcid, "outputs")
+
+        self._inputs = None
+        self._func = None
+        self._expected_outputs = None
+        self._actual_outputs = None
+        self._compared_outputs = None
+
+    @property
+    def inputs(self) -> tuple[tuple, dict]:
+        if self._inputs is not None:
+            return self._inputs
+        if os.path.exists(self.f_inputs):
+            args, kwargs = _serializer.read_inputs(self.f_inputs)
+            self._inputs = args, kwargs
+            return self._inputs
+        raise _StopTest(
+            self.info_test_result(
+                StatusTestResult.ERROR, f"Inputs file {self.f_inputs} not found."
+            )
+        )
+
+    @property
+    def func(self):
+        if self._func is not None:
+            return self._func
+        if os.path.exists(self.f_func):
+            self._func = _serializer.read_func(self.f_func)
+            return self._func
+        raise _StopTest(
+            self.info_test_result(
+                StatusTestResult.ERROR, f"Func file {self.f_func} not found."
+            )
+        )
+
+    @property
+    def actual_outputs(self):
+        if self._actual_outputs is not None:
+            return self._actual_outputs
+        self._actual_outputs = _get_func_output(self.func, *self.inputs)
+        return self._actual_outputs
+
+    @property
+    def expected_outputs(self) -> FunctionOutput:
+        if self._expected_outputs is not None:
+            return self._expected_outputs
+        if os.path.exists(self.f_outputs):
+            self._expected_outputs = _serializer.read(self.f_outputs)
+            return self._expected_outputs
+        raise _StopTest(
+            self.info_test_result(
+                StatusTestResult.ERROR, f"Outputs file {self.f_outputs} not found."
+            )
+        )
+
+    @property
+    def compared_outputs(self):
+        if self._compared_outputs is not None:
+            return self._compared_outputs
+        args, kwargs = self.inputs
+        func = self.func
+        if self.actual_outputs.output_type != self.expected_outputs.output_type:
+            self._compared_outputs = self.info_test_result(
+                StatusTestResult.FAIL,
+                f"Output type mismatch: {self.actual_outputs.output_type} != {self.expected_outputs.output_type}",
+                _inputs=(args, kwargs),
+                _expected_outputs=self.expected_outputs,
+                _actual_outputs=self.actual_outputs,
+                _func=func,
+            )
+        elif not get_is_equal()(
+            self.actual_outputs.output, self.expected_outputs.output
+        ):
+            self._compared_outputs = self.info_test_result(
+                StatusTestResult.FAIL,
+                "Outputs not matched.",
+                _inputs=(args, kwargs),
+                _expected_outputs=self.expected_outputs,
+                _actual_outputs=self.actual_outputs,
+                _func=func,
+            )
+        else:
+            self._compared_outputs = self.info_test_result(
+                StatusTestResult.SUCCESS,
+                _inputs=(args, kwargs),
+                _expected_outputs=self.expected_outputs,
+                _actual_outputs=self.actual_outputs,
+                _func=func,
+            )
+        return self._compared_outputs
+
+    def info_test_result(
+        self,
+        result_status,
+        message="",
+        _inputs=None,
+        _expected_outputs=None,
+        _actual_outputs=None,
+        _func=None,
+    ):
+        s = get_message_formatter()(
+            MessageRecord(
+                result_status=result_status,
+                fcid=self.func_id,
+                tcid=self.tcid,
+                message=message,
+                inputs=_inputs,
+                expected_outputs=_expected_outputs,
+                actual_outputs=_actual_outputs,
+                func=_func,
+            )
+        )
+        get_printer()(s)
+        return TestResult(result_status, self.func_id, self.tcid, message)
+
+    def _need_to_run(self):
+        if self.artest_config.include_function is not None:
+            if self.func_id not in self.artest_config.include_function:
+                return False
+        if self.artest_config.include_test_case is not None:
+            if self.tcid not in self.artest_config.include_test_case:
+                return False
+        if self.artest_config.exclude_function is not None:
+            if self.func_id in self.artest_config.exclude_function:
+                return False
+        if self.artest_config.exclude_test_case is not None:
+            if self.tcid in self.artest_config.exclude_test_case:
+                return False
+        return True
+
+    def _run(self):
+        if not self._need_to_run():
+            return self.info_test_result(StatusTestResult.SKIP)
+
+        if self.artest_config.mode == "test":
+            return self.compared_outputs
+        if self.artest_config.mode == "refresh":
+            actual_output = self.actual_outputs
+            _serializer.save(actual_output, self.f_outputs)
+            return self.info_test_result(StatusTestResult.REFRESH)
+
+    def run(self):
+        fcid_reset_token = _fcid_var.set(self.func_id)
+        tcid_reset_token = _tcid_var.set(self.tcid)
+
+        try:
+            return self._run()
+        except _StopTest as e:
+            return e.result
+        finally:
+            _fcid_var.reset(fcid_reset_token)
+            _tcid_var.reset(tcid_reset_token)
+
+
+def _gather_test_results(artest_config: ArtestConfig) -> list[TestResult]:
     test_results = []
     for path in glob(os.path.join(get_artest_root(), "*", "*")):
         fcid, tcid = path.split(os.path.sep)[-2:]
 
-        def info_test_result(
-            is_success,
-            message="",
-            _inputs=None,
-            _expected_outputs=None,
-            _actual_outputs=None,
-            _func=None,
-        ):
-            test_results.append(TestResult(is_success, fcid, tcid, message))
-            s = get_message_formatter()(
-                MessageRecord(
-                    is_success=is_success,
-                    fcid=fcid,
-                    tcid=tcid,
-                    message=message,
-                    inputs=_inputs,
-                    expected_outputs=_expected_outputs,
-                    actual_outputs=_actual_outputs,
-                    func=_func,
-                )
-            )
-            get_printer()(s)
+        result = _TestRunner(fcid, tcid, artest_config).run()
+        test_results.append(result)
 
-        fcid_reset_token = _fcid_var.set(fcid)
-        tcid_reset_token = _tcid_var.set(tcid)
-        f_inputs = _build_path(fcid, tcid, "inputs")
-        f_outputs = _build_path(fcid, tcid, "outputs")
-        f_func = _build_path(fcid, tcid, "func")
-        if os.path.exists(f_inputs):
-            args, kwargs = _serializer.read_inputs(f_inputs)
-        else:
-            info_test_result(False, f"Inputs file {f_inputs} not found.")
-            continue
-        if os.path.exists(f_outputs):
-            expected_outputs: FunctionOutput = _serializer.read(f_outputs)
-        else:
-            info_test_result(False, f"Outputs file {f_outputs} not found.")
-            continue
-        if os.path.exists(f_func):
-            func = _serializer.read_func(f_func)
-        else:
-            info_test_result(False, f"Func file {f_func} not found.")
-            continue
-
-        actual_outputs = _get_func_output(func, args, kwargs)
-
-        if actual_outputs.output_type != expected_outputs.output_type:
-            info_test_result(
-                False,
-                f"Output type mismatch: {actual_outputs.output_type} != {expected_outputs.output_type}",
-                _inputs=(args, kwargs),
-                _expected_outputs=expected_outputs,
-                _actual_outputs=actual_outputs,
-                _func=func,
-            )
-            continue
-        if not get_is_equal()(actual_outputs.output, expected_outputs.output):
-            info_test_result(
-                False,
-                "Outputs not matched.",
-                _inputs=(args, kwargs),
-                _expected_outputs=expected_outputs,
-                _actual_outputs=actual_outputs,
-                _func=func,
-            )
-            continue
-        info_test_result(
-            True,
-            _inputs=(args, kwargs),
-            _expected_outputs=expected_outputs,
-            _actual_outputs=actual_outputs,
-            _func=func,
-        )
-
-        _fcid_var.reset(fcid_reset_token)
-        _tcid_var.reset(tcid_reset_token)
     return test_results
 
 
-def main():
+def _run_artest(artest_config: ArtestConfig):
+    _stub_counter.clear()
+    artest_mode_reset_token = _artest_mode_var.set(ArtestMode.TEST)
+    try:
+        test_results = _gather_test_results(artest_config)
+        status_counts = Counter([r.status for r in test_results])
+        if (
+            status_counts[StatusTestResult.ERROR] > 0
+            or status_counts[StatusTestResult.FAIL] > 0
+        ):
+            get_printer()("Failed")
+        else:
+            get_printer()("Passed")
+        get_printer()(
+            f"Test results: {status_counts[StatusTestResult.SUCCESS]} passed, {status_counts[StatusTestResult.FAIL]} failed, {status_counts[StatusTestResult.SKIP]} skipped, {status_counts[StatusTestResult.ERROR]} error, {status_counts[StatusTestResult.REFRESH]} refreshed."
+        )
+        return test_results
+    except Exception as e:
+        raise e
+    finally:
+        _artest_mode_var.reset(artest_mode_reset_token)
+
+
+def main(args=None):
     """Execute Automated Regression Testing.
 
     This function orchestrates the automated regression testing process by emulating the testing environment
@@ -745,22 +867,29 @@ def main():
                     Or if an exception occurs during function execution.
 
     """
-    _stub_counter.clear()
-    artest_mode_reset_token = _artest_mode_var.set(ArtestMode.TEST)
-    try:
-        test_results = _main()
-        if all([r.is_success for r in test_results]):
-            get_printer()(f"Passed ({len(test_results)}/{len(test_results)})")
-        else:
-            get_printer()(
-                f"Failed ({sum([r.is_success for r in test_results])}/{len(test_results)})"
-            )
-        return test_results
-    except Exception as e:
-        raise e
-    finally:
-        _artest_mode_var.reset(artest_mode_reset_token)
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--refresh", action="store_true")
+    parser.add_argument("--include-function", nargs="+", action="extend")
+    parser.add_argument("--include-test-case", nargs="+", action="extend")
+    parser.add_argument("--exclude-function", nargs="+", action="extend")
+    parser.add_argument("--exclude-test-case", nargs="+", action="extend")
+
+    if args is None:
+        args = []
+    args = parser.parse_args(args)
+
+    artest_config = ArtestConfig(
+        mode="refresh" if args.refresh else "test",  # noqa
+        include_function=args.include_function,
+        include_test_case=args.include_test_case,
+        exclude_function=args.exclude_function,
+        exclude_test_case=args.exclude_test_case,
+    )
+    return _run_artest(artest_config)
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

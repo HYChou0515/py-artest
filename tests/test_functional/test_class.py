@@ -5,6 +5,7 @@ from functools import wraps
 import artest.artest
 from artest import autoreg, autostub
 from artest.config import set_test_case_id_generator
+from artest.types import StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
     call_time_path,
@@ -135,7 +136,7 @@ class Hello:
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(classmethod_id, None)
+@make_cleanup_test_case_files(classmethod_id)
 @make_cleanup_file(call_time_path(classmethod_id))
 def test_class_class_method():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -157,17 +158,17 @@ def test_class_class_method():
     assert len(test_results) == 1
     assert test_results[0].fcid == classmethod_id
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS
 
     assert get_call_time(classmethod_id) == 1  # directly called
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(decorator3_id, None)
+@make_cleanup_test_case_files(decorator3_id)
 @make_cleanup_file(call_time_path(decorator3_id))
-@make_cleanup_test_case_files(decorator2_id, None)
+@make_cleanup_test_case_files(decorator2_id)
 @make_cleanup_file(call_time_path(decorator2_id))
-@make_cleanup_test_case_files(decorator_and_property_id, None)
+@make_cleanup_test_case_files(decorator_and_property_id)
 @make_cleanup_file(call_time_path(decorator_and_property_id))
 def test_class_decorator3():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -200,13 +201,13 @@ def test_class_decorator3():
     assert counts_by_fcid[decorator_and_property_id] == 6
 
     assert {tr.tcid for tr in test_results} == set(tcid)
-    assert {tr.is_success for tr in test_results} == {True}
+    assert {tr.status == StatusTestResult.SUCCESS for tr in test_results} == {True}
 
     assert get_call_time(decorator3_id) == 3  # directly called
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(decorator2_id, None)
+@make_cleanup_test_case_files(decorator2_id)
 @make_cleanup_file(call_time_path(decorator2_id))
 def test_class_decorator2():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -229,13 +230,13 @@ def test_class_decorator2():
     assert len(test_results) == 1
     assert test_results[0].fcid == decorator2_id
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS
 
     assert get_call_time(decorator2_id) == 1  # directly called
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(decorator_and_property_id, None)
+@make_cleanup_test_case_files(decorator_and_property_id)
 @make_cleanup_file(call_time_path(decorator_and_property_id))
 def test_class_decorator_and_property():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -258,13 +259,13 @@ def test_class_decorator_and_property():
     assert len(test_results) == 1
     assert test_results[0].fcid == decorator_and_property_id
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS
 
     assert get_call_time(decorator_and_property_id) == 1  # directly called
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(decorator_id, None)
+@make_cleanup_test_case_files(decorator_id)
 @make_cleanup_file(call_time_path(decorator_id))
 def test_class_decorator():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -287,13 +288,13 @@ def test_class_decorator():
     assert len(test_results) == 1
     assert test_results[0].fcid == decorator_id
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS
 
     assert get_call_time(decorator_id) == 1  # directly called
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(property_id, None)
+@make_cleanup_test_case_files(property_id)
 @make_cleanup_file(call_time_path(property_id))
 def test_class_property():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -316,14 +317,14 @@ def test_class_property():
     assert len(test_results) == 1
     assert test_results[0].fcid == property_id
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS
 
     assert get_call_time(property_id) == 1  # directly called
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(staticmethod_id, None)
-@make_cleanup_test_case_files(static_caller_id, None)
+@make_cleanup_test_case_files(staticmethod_id)
+@make_cleanup_test_case_files(static_caller_id)
 @make_cleanup_file(call_time_path(staticmethod_id))
 @make_cleanup_file(call_time_path(static_caller_id))
 def test_class_staticmethod_call():
@@ -352,14 +353,14 @@ def test_class_staticmethod_call():
     assert len(test_results) == 2
     assert {tr.fcid for tr in test_results} == {staticmethod_id, static_caller_id}
     assert {tr.tcid for tr in test_results} == {tcid1, tcid2}
-    assert {tr.is_success for tr in test_results} == {True}
+    assert {tr.status == StatusTestResult.SUCCESS for tr in test_results} == {True}
 
     assert get_call_time(staticmethod_id) == 2  # directly called
     assert get_call_time(static_caller_id) == 1  # directly called
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(staticmethod_id, None)
+@make_cleanup_test_case_files(staticmethod_id)
 @make_cleanup_file(call_time_path(staticmethod_id))
 def test_class_staticmethod():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -382,13 +383,13 @@ def test_class_staticmethod():
     assert len(test_results) == 1
     assert test_results[0].fcid == staticmethod_id
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS
 
     assert get_call_time(staticmethod_id) == 1  # directly called
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello_id, None)
+@make_cleanup_test_case_files(hello_id)
 @make_cleanup_file(call_time_path(hello_id))
 @make_cleanup_file(call_time_path(stub_id))
 def test_class():
@@ -415,7 +416,7 @@ def test_class():
     assert len(test_results) == 1
     assert test_results[0].fcid == hello_id
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS
 
     assert get_call_time(hello_id) == 1  # directly called
     assert get_call_time(stub_id) == 0  # stubbed by artest, should not be called

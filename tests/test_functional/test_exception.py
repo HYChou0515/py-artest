@@ -5,27 +5,25 @@ import pytest
 import artest.artest
 from artest import autoreg, autostub
 from artest.config import set_test_case_id_generator
+from artest.types import StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
     call_time_path,
     get_call_time,
+    make_callback,
     make_cleanup_file,
     make_cleanup_test_case_files,
     make_test_autoreg,
     set_call_time,
 )
 
-_tcid = "temp-test"
-
 
 def gen():
+    i = 0
     while True:
-        yield _tcid
+        yield str(i)
+        i += 1
 
-
-gen1, gen2 = itertools.tee(gen(), 2)
-
-set_test_case_id_generator(gen1)
 
 hello_id = "b5e47da9abc046eeac92ecff783e56f7"
 hello2_id = "7711d7ad1b614b0bafec82b06e867d00"
@@ -63,10 +61,14 @@ def the_stub(x):
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello_id, _tcid)
+@make_cleanup_test_case_files(hello_id)
 @make_cleanup_file(call_time_path(hello_id))
 @make_cleanup_file(call_time_path(stub_id))
+@make_callback(set_test_case_id_generator)
 def test_autoreg_exception():
+    gen1, gen2 = itertools.tee(gen(), 2)
+    set_test_case_id_generator(gen1)
+
     set_call_time(hello_id, 0)
     set_call_time(stub_id, 0)
 
@@ -89,17 +91,21 @@ def test_autoreg_exception():
     assert len(test_results) == 1
     assert test_results[0].fcid == hello_id
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS
 
     assert get_call_time(hello_id) == 1  # directly called
     assert get_call_time(stub_id) == 0  # stubbed by artest, should not be called
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello2_id, _tcid)
+@make_cleanup_test_case_files(hello2_id)
 @make_cleanup_file(call_time_path(hello2))
 @make_cleanup_file(call_time_path(stub_id))
+@make_callback(set_test_case_id_generator)
 def test_autostub_exception():
+    gen1, gen2 = itertools.tee(gen(), 2)
+    set_test_case_id_generator(gen1)
+
     set_call_time(hello2_id, 0)
     set_call_time(stub_id, 0)
 
@@ -122,17 +128,21 @@ def test_autostub_exception():
     assert len(test_results) == 1
     assert test_results[0].fcid == hello2_id
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS
 
     assert get_call_time(hello2_id) == 1  # directly called
     assert get_call_time(stub_id) == 0  # stubbed by artest, should not be called
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello3_id, _tcid)
+@make_cleanup_test_case_files(hello3_id)
 @make_cleanup_file(call_time_path(hello3_id))
 @make_cleanup_file(call_time_path(stub_id))
+@make_callback(set_test_case_id_generator)
 def test_autostub_exception2():
+    gen1, gen2 = itertools.tee(gen(), 2)
+    set_test_case_id_generator(gen1)
+
     set_call_time(hello3_id, 0)
     set_call_time(stub_id, 0)
 
@@ -153,6 +163,6 @@ def test_autostub_exception2():
     assert len(test_results) == 1
     assert test_results[0].fcid == hello3_id
     assert test_results[0].tcid == tcid
-    assert test_results[0].is_success
+    assert test_results[0].status == StatusTestResult.SUCCESS
     assert get_call_time(hello3_id) == 1  # directly called
     assert get_call_time(stub_id) == 0  # stubbed by artest, should not be called

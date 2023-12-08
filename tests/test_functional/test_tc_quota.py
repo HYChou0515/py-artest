@@ -8,7 +8,7 @@ from artest.config import (
     set_test_case_id_generator,
     set_test_case_quota,
 )
-from artest.types import ConfigTestCaseQuota
+from artest.types import ConfigTestCaseQuota, StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
     call_time_path,
@@ -45,8 +45,8 @@ def func2(x):
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello_id, None)
-@make_cleanup_test_case_files(func2_id, None)
+@make_cleanup_test_case_files(hello_id)
+@make_cleanup_test_case_files(func2_id)
 @make_cleanup_file(call_time_path(hello_id))
 @make_cleanup_file(call_time_path(func2_id))
 @make_callback(reset_all_test_case_quota)
@@ -85,14 +85,14 @@ def test_fc_tc_quota_max_count():
     assert fcid_counter[func2_id] == 2
 
     assert {tr.tcid for tr in test_results} == {tcid[i] for i in range(5)}
-    assert {tr.is_success for tr in test_results} == {True}
+    assert {tr.status == StatusTestResult.SUCCESS for tr in test_results} == {True}
 
     assert get_call_time(hello_id) == 3
     assert get_call_time(func2_id) == 2
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello_id, None)
+@make_cleanup_test_case_files(hello_id)
 @make_cleanup_file(call_time_path(hello_id))
 @make_callback(reset_all_test_case_quota)
 def test_tc_quota_max_count():
@@ -121,6 +121,6 @@ def test_tc_quota_max_count():
     assert len(test_results) == 2
     assert {tr.fcid for tr in test_results} == {hello_id}
     assert {tr.tcid for tr in test_results} == {tcid[0], tcid[1]}
-    assert {tr.is_success for tr in test_results} == {True}
+    assert {tr.status == StatusTestResult.SUCCESS for tr in test_results} == {True}
 
     assert get_call_time(hello_id) == 2

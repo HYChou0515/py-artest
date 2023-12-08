@@ -35,10 +35,22 @@ FunctionOutput = NamedTuple(
         ("output", object),
     ],
 )
+
+
+class StatusTestResult(str, Enum):
+    """Test result status."""
+
+    SUCCESS = "SUCCESS"
+    FAIL = "FAIL"
+    SKIP = "SKIP"
+    REFRESH = "REFRESH"
+    ERROR = "ERROR"
+
+
 TestResult = NamedTuple(
     "TestResult",
     [
-        ("is_success", bool),
+        ("status", StatusTestResult),
         ("fcid", str),
         ("tcid", str),
         ("message", str),
@@ -50,7 +62,7 @@ TestResult = NamedTuple(
 class MessageRecord:
     """Represents a message record."""
 
-    is_success: bool
+    result_status: StatusTestResult
     fcid: str
     tcid: str
     message: Optional[str] = None
@@ -93,3 +105,22 @@ class ConfigTestCaseQuota:
     """
 
     max_count: Optional[Union[int, Literal["inf"]]] = None
+
+
+@dataclass
+class ArtestConfig:
+    """Artest config.
+
+    Attributes:
+        mode (Literal['refresh', 'test']): The artest mode.
+        include_function (Optional[list[str]]): The list of function ids to be included.
+        include_test_case (Optional[list[str]]): The list of test case ids to be included.
+        exclude_function (Optional[list[str]]): The list of function ids to be excluded.
+        exclude_test_case (Optional[list[str]]): The list of test case ids to be excluded.
+    """
+
+    mode: Literal["refresh", "test"] = "test"
+    include_function: Union[None, list[str]] = None
+    include_test_case: Union[None, list[str]] = None
+    exclude_function: Union[None, list[str]] = None
+    exclude_test_case: Union[None, list[str]] = None
