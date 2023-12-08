@@ -99,7 +99,7 @@ def test_custom_message_formatter():
     assert len(results) == 1
     assert results[0].fcid == hello1_id
     assert results[0].tcid == tcid
-    assert not results[0].status == StatusTestResult.SUCCESS
+    assert results[0].status == StatusTestResult.FAIL
 
     assert len(_message) == 3
     assert (
@@ -145,7 +145,7 @@ def test_custom_stringify_obj():
     assert len(results) == 1
     assert results[0].fcid == hello2_id
     assert results[0].tcid == tcid
-    assert not results[0].status == StatusTestResult.SUCCESS
+    assert results[0].status == StatusTestResult.FAIL
 
     assert len(_message) == 3
     assert (
@@ -189,7 +189,7 @@ def test_default_stringify_obj():
     assert len(results) == 1
     assert results[0].fcid == hello3_id
     assert results[0].tcid == tcid
-    assert not results[0].status == StatusTestResult.SUCCESS
+    assert results[0].status == StatusTestResult.FAIL
 
     assert len(_message) == 3
     assert (

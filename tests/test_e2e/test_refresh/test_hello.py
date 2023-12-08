@@ -30,7 +30,7 @@ dirname = os.path.dirname(__file__)
 @make_cleanup_test_case_files(hello_id)
 @make_cleanup_file(f"{dirname}/hello.py")
 @make_callback(set_test_case_id_generator)
-def test_change_should_fail():
+def test_refresh():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -50,3 +50,16 @@ def test_change_should_fail():
     assert results[0].fcid == hello_id
     assert results[0].tcid == tcid
     assert results[0].status == StatusTestResult.FAIL
+
+    results = artest.artest.main(["--refresh"])
+    assert len(results) == 1
+    assert results[0].fcid == hello_id
+    assert results[0].tcid == tcid
+    assert results[0].status == StatusTestResult.REFRESH
+
+    results = artest.artest.main()
+    assert len(results) == 1
+    assert results[0].fcid == hello_id
+    assert results[0].tcid == tcid
+    assert results[0].status == StatusTestResult.SUCCESS
+

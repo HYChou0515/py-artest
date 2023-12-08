@@ -116,5 +116,5 @@ def test_dup2_when_dup_action_is_ignored():
     # registered as dup1 (the first one).
     # So the result will be failed because the saved output is
     # from dup2.
-    assert not results[0].status == StatusTestResult.SUCCESS
+    assert results[0].status == StatusTestResult.FAIL
     assert results[0].message == "Outputs not matched."
