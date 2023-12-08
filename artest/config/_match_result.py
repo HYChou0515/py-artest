@@ -16,7 +16,7 @@ def _default_is_equal(actual, expected):
 _is_equal = _default_is_equal
 
 
-def set_is_equal(func):
+def set_is_equal(func=None):
     """Sets the function for comparing two objects.
 
     Args:

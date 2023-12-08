@@ -8,10 +8,7 @@ from artest.config import set_test_case_id_generator
 from artest.types import StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
-    call_time_path,
     get_call_time,
-    make_cleanup_file,
-    make_cleanup_test_case_files,
     make_test_autoreg,
     set_call_time,
 )
@@ -135,9 +132,9 @@ class Hello:
         )
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(classmethod_id)
-@make_cleanup_file(call_time_path(classmethod_id))
+@make_test_autoreg(
+    fcid_list=[classmethod_id],
+)
 def test_class_class_method():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -163,13 +160,9 @@ def test_class_class_method():
     assert get_call_time(classmethod_id) == 1  # directly called
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(decorator3_id)
-@make_cleanup_file(call_time_path(decorator3_id))
-@make_cleanup_test_case_files(decorator2_id)
-@make_cleanup_file(call_time_path(decorator2_id))
-@make_cleanup_test_case_files(decorator_and_property_id)
-@make_cleanup_file(call_time_path(decorator_and_property_id))
+@make_test_autoreg(
+    fcid_list=[decorator3_id, decorator2_id, decorator_and_property_id],
+)
 def test_class_decorator3():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -206,9 +199,9 @@ def test_class_decorator3():
     assert get_call_time(decorator3_id) == 3  # directly called
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(decorator2_id)
-@make_cleanup_file(call_time_path(decorator2_id))
+@make_test_autoreg(
+    fcid_list=[decorator2_id],
+)
 def test_class_decorator2():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -235,9 +228,9 @@ def test_class_decorator2():
     assert get_call_time(decorator2_id) == 1  # directly called
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(decorator_and_property_id)
-@make_cleanup_file(call_time_path(decorator_and_property_id))
+@make_test_autoreg(
+    fcid_list=[decorator_and_property_id],
+)
 def test_class_decorator_and_property():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -264,9 +257,9 @@ def test_class_decorator_and_property():
     assert get_call_time(decorator_and_property_id) == 1  # directly called
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(decorator_id)
-@make_cleanup_file(call_time_path(decorator_id))
+@make_test_autoreg(
+    fcid_list=[decorator_id],
+)
 def test_class_decorator():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -293,9 +286,9 @@ def test_class_decorator():
     assert get_call_time(decorator_id) == 1  # directly called
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(property_id)
-@make_cleanup_file(call_time_path(property_id))
+@make_test_autoreg(
+    fcid_list=[property_id],
+)
 def test_class_property():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -322,11 +315,9 @@ def test_class_property():
     assert get_call_time(property_id) == 1  # directly called
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(staticmethod_id)
-@make_cleanup_test_case_files(static_caller_id)
-@make_cleanup_file(call_time_path(staticmethod_id))
-@make_cleanup_file(call_time_path(static_caller_id))
+@make_test_autoreg(
+    fcid_list=[staticmethod_id, static_caller_id],
+)
 def test_class_staticmethod_call():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -359,9 +350,9 @@ def test_class_staticmethod_call():
     assert get_call_time(static_caller_id) == 1  # directly called
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(staticmethod_id)
-@make_cleanup_file(call_time_path(staticmethod_id))
+@make_test_autoreg(
+    fcid_list=[staticmethod_id],
+)
 def test_class_staticmethod():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -388,10 +379,9 @@ def test_class_staticmethod():
     assert get_call_time(staticmethod_id) == 1  # directly called
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(hello_id)
-@make_cleanup_file(call_time_path(hello_id))
-@make_cleanup_file(call_time_path(stub_id))
+@make_test_autoreg(
+    fcid_list=[hello_id, stub_id],
+)
 def test_class():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)

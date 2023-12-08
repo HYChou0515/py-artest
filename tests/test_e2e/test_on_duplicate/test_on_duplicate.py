@@ -7,12 +7,7 @@ import pytest
 import artest
 from artest.config import set_on_func_id_duplicate, set_test_case_id_generator
 from artest.types import OnFuncIdDuplicateAction, StatusTestResult
-from tests.helper import (
-    assert_test_case_files_exist,
-    make_callback,
-    make_cleanup_test_case_files,
-    make_test_autoreg,
-)
+from tests.helper import assert_test_case_files_exist, make_test_autoreg
 
 from .hello_id import dup_id, hello_id
 
@@ -27,10 +22,7 @@ def gen():
 dirname = os.path.dirname(__file__)
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(hello_id)
-@make_callback(lambda: set_on_func_id_duplicate(None))
-@make_callback(set_test_case_id_generator)
+@make_test_autoreg(fcid_list=[hello_id])
 def test_reload_hello_when_default_on_duplicate_action_is_ignore_should_pass():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -42,8 +34,7 @@ def test_reload_hello_when_default_on_duplicate_action_is_ignore_should_pass():
     importlib.reload(module)
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(hello_id)
+@make_test_autoreg(fcid_list=[hello_id])
 def test_reload_hello_should_fail():
     # reload hello.py should fail because hello_id is already registered in autoreg
     from .hello import hello  # noqa: E402
@@ -56,8 +47,7 @@ def test_reload_hello_should_fail():
     )
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(dup_id)
+@make_test_autoreg(fcid_list=[dup_id])
 def test_dup_should_fail():
     with pytest.raises(ValueError) as exec:
         from .dup import dup1
@@ -67,10 +57,7 @@ def test_dup_should_fail():
     assert exec.value.args[0] == f"Function {dup_id} is already registered in autoreg."
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(dup_id)
-@make_callback(lambda: set_on_func_id_duplicate(None))
-@make_callback(set_test_case_id_generator)
+@make_test_autoreg(fcid_list=[dup_id])
 def test_dup1_when_dup_action_is_ignored():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -90,10 +77,7 @@ def test_dup1_when_dup_action_is_ignored():
     assert results[0].status == StatusTestResult.SUCCESS
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(dup_id)
-@make_callback(lambda: set_on_func_id_duplicate(None))
-@make_callback(set_test_case_id_generator)
+@make_test_autoreg(fcid_list=[dup_id])
 def test_dup2_when_dup_action_is_ignored():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)

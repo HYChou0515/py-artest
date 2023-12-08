@@ -8,7 +8,6 @@ from tests.helper import (
     assert_test_case_files_exist,
     call_time_path,
     get_call_time,
-    make_callback,
     make_cleanup_file,
     make_cleanup_test_case_files,
     make_test_autoreg,
@@ -56,7 +55,6 @@ def the_stub(x):
 @make_cleanup_file(call_time_path(hello_id))
 @make_cleanup_file(call_time_path(hello1_id))
 @make_cleanup_file(call_time_path(stub_id))
-@make_callback(set_test_case_id_generator)
 def test_recursive():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)

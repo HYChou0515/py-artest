@@ -10,13 +10,21 @@ Functions and Classes:
     - environ(target, value): Context manager to temporarily set environment variables.
     - make_test_autoreg(): Decorator factory to set the test mode for automatic regression tests.
 """
-
 import os
 import pickle
 import shutil
 from contextlib import contextmanager
 from functools import wraps
 
+from artest.config import (
+    reset_all_test_case_quota,
+    set_is_equal,
+    set_message_formatter,
+    set_on_func_id_duplicate,
+    set_printer,
+    set_stringify_obj,
+    set_test_case_id_generator,
+)
 from artest.types import ArtestMode
 
 
@@ -139,7 +147,7 @@ def environ(target, value):
             os.environ[target] = original
 
 
-def make_test_autoreg():
+def make_test_autoreg(*, fcid_list=None, more_files_to_clean=None, more_callbacks=None):
     """Decorator factory to set the test mode for automatic regression tests.
 
     Returns:
@@ -150,7 +158,22 @@ def make_test_autoreg():
         @wraps(func)
         def wrapper(*args, **kwargs):
             with environ("ARTEST_MODE", ArtestMode.CASE.value):
-                func(*args, **kwargs)
+                _func = func
+                for fcid in fcid_list or []:
+                    _func = make_cleanup_test_case_files(fcid)(_func)
+                    _func = make_cleanup_file(call_time_path(fcid))(_func)
+                for filepath in more_files_to_clean or []:
+                    _func = make_cleanup_file(filepath)(_func)
+                for callback in more_callbacks or []:
+                    _func = make_callback(callback)(_func)
+                _func = make_callback(set_test_case_id_generator)(_func)
+                _func = make_callback(set_on_func_id_duplicate)(_func)
+                _func = make_callback(set_is_equal)(_func)
+                _func = make_callback(set_message_formatter)(_func)
+                _func = make_callback(set_printer)(_func)
+                _func = make_callback(set_stringify_obj)(_func)
+                _func = make_callback(reset_all_test_case_quota)(_func)
+                _func(*args, **kwargs)
 
         return wrapper
 

@@ -3,15 +3,11 @@ import itertools as it
 
 import artest.artest
 from artest import autoreg
-from artest.config import reset_all_test_case_quota, set_test_case_id_generator
+from artest.config import set_test_case_id_generator
 from artest.types import StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
-    call_time_path,
     get_call_time,
-    make_callback,
-    make_cleanup_file,
-    make_cleanup_test_case_files,
     make_test_autoreg,
     set_call_time,
 )
@@ -83,14 +79,9 @@ def setup_tcid():
     return tcid
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(fcid1)
-@make_cleanup_file(call_time_path(fcid1))
-@make_cleanup_test_case_files(fcid2)
-@make_cleanup_file(call_time_path(fcid2))
-@make_cleanup_test_case_files(fcid3)
-@make_cleanup_file(call_time_path(fcid3))
-@make_callback(reset_all_test_case_quota)
+@make_test_autoreg(
+    fcid_list=[fcid1, fcid2, fcid3],
+)
 def test_include_function():
     tcid = setup_tcid()
 
@@ -118,14 +109,9 @@ def test_include_function():
     assert get_call_time(fcid3) == 1
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(fcid1)
-@make_cleanup_file(call_time_path(fcid1))
-@make_cleanup_test_case_files(fcid2)
-@make_cleanup_file(call_time_path(fcid2))
-@make_cleanup_test_case_files(fcid3)
-@make_cleanup_file(call_time_path(fcid3))
-@make_callback(reset_all_test_case_quota)
+@make_test_autoreg(
+    fcid_list=[fcid1, fcid2, fcid3],
+)
 def test_exclude_function():
     tcid = setup_tcid()
 
@@ -153,14 +139,9 @@ def test_exclude_function():
     assert get_call_time(fcid3) == 0
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(fcid1)
-@make_cleanup_file(call_time_path(fcid1))
-@make_cleanup_test_case_files(fcid2)
-@make_cleanup_file(call_time_path(fcid2))
-@make_cleanup_test_case_files(fcid3)
-@make_cleanup_file(call_time_path(fcid3))
-@make_callback(reset_all_test_case_quota)
+@make_test_autoreg(
+    fcid_list=[fcid1, fcid2, fcid3],
+)
 def test_include_test_case():
     tcid = setup_tcid()
 
@@ -190,14 +171,9 @@ def test_include_test_case():
     assert get_call_time(fcid3) == 0
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(fcid1)
-@make_cleanup_file(call_time_path(fcid1))
-@make_cleanup_test_case_files(fcid2)
-@make_cleanup_file(call_time_path(fcid2))
-@make_cleanup_test_case_files(fcid3)
-@make_cleanup_file(call_time_path(fcid3))
-@make_callback(reset_all_test_case_quota)
+@make_test_autoreg(
+    fcid_list=[fcid1, fcid2, fcid3],
+)
 def test_exclude_test_case():
     tcid = setup_tcid()
 
@@ -227,14 +203,9 @@ def test_exclude_test_case():
     assert get_call_time(fcid3) == 1
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(fcid1)
-@make_cleanup_file(call_time_path(fcid1))
-@make_cleanup_test_case_files(fcid2)
-@make_cleanup_file(call_time_path(fcid2))
-@make_cleanup_test_case_files(fcid3)
-@make_cleanup_file(call_time_path(fcid3))
-@make_callback(reset_all_test_case_quota)
+@make_test_autoreg(
+    fcid_list=[fcid1, fcid2, fcid3],
+)
 def test_multi_args1():
     tcid = setup_tcid()
 
