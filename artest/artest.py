@@ -872,10 +872,10 @@ def main(args=None):
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--refresh", action="store_true")
-    parser.add_argument("--include-function", nargs="+")
-    parser.add_argument("--include-test-case", nargs="+")
-    parser.add_argument("--exclude-function", nargs="+")
-    parser.add_argument("--exclude-test-case", nargs="+")
+    parser.add_argument("--include-function", nargs="+", action="extend")
+    parser.add_argument("--include-test-case", nargs="+", action="extend")
+    parser.add_argument("--exclude-function", nargs="+", action="extend")
+    parser.add_argument("--exclude-test-case", nargs="+", action="extend")
 
     if args is None:
         args = []

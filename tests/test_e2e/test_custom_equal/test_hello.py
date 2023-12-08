@@ -15,17 +15,13 @@ from tests.helper import (
 
 from .hello_id import hello_id
 
-_tcid = "temp-test"
-
 
 def gen():
+    i = 0
     while True:
-        yield _tcid
+        yield str(i)
+        i += 1
 
-
-gen1, gen2 = itertools.tee(gen(), 2)
-
-set_test_case_id_generator(gen1)
 
 dirname = os.path.dirname(__file__)
 
@@ -36,10 +32,13 @@ def custom_is_equal(a, b):
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello_id, _tcid)
+@make_cleanup_test_case_files(hello_id)
 @make_cleanup_file(f"{dirname}/hello.py")
 @make_callback(lambda: set_is_equal(None))
 def test_custom_equal():
+    gen1, gen2 = itertools.tee(gen(), 2)
+    set_test_case_id_generator(gen1)
+
     set_is_equal(custom_is_equal)
     tcid = next(gen2)
 

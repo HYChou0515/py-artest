@@ -16,25 +16,25 @@ from tests.helper import (
 
 from .hello_id import dup_id, hello_id
 
-_tcid = "temp-test"
-
 
 def gen():
+    i = 0
     while True:
-        yield _tcid
+        yield str(i)
+        i += 1
 
-
-gen1, gen2 = itertools.tee(gen(), 2)
-
-set_test_case_id_generator(gen1)
 
 dirname = os.path.dirname(__file__)
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello_id, _tcid)
+@make_cleanup_test_case_files(hello_id)
 @make_callback(lambda: set_on_func_id_duplicate(None))
+@make_callback(set_test_case_id_generator)
 def test_reload_hello_when_default_on_duplicate_action_is_ignore_should_pass():
+    gen1, gen2 = itertools.tee(gen(), 2)
+    set_test_case_id_generator(gen1)
+
     set_on_func_id_duplicate(OnFuncIdDuplicateAction.IGNORE)
     from .hello import hello  # noqa: E402
 
@@ -43,7 +43,7 @@ def test_reload_hello_when_default_on_duplicate_action_is_ignore_should_pass():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello_id, _tcid)
+@make_cleanup_test_case_files(hello_id)
 def test_reload_hello_should_fail():
     # reload hello.py should fail because hello_id is already registered in autoreg
     from .hello import hello  # noqa: E402
@@ -57,7 +57,7 @@ def test_reload_hello_should_fail():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(dup_id, _tcid)
+@make_cleanup_test_case_files(dup_id)
 def test_dup_should_fail():
     with pytest.raises(ValueError) as exec:
         from .dup import dup1
@@ -68,38 +68,48 @@ def test_dup_should_fail():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(dup_id, _tcid)
+@make_cleanup_test_case_files(dup_id)
 @make_callback(lambda: set_on_func_id_duplicate(None))
+@make_callback(set_test_case_id_generator)
 def test_dup1_when_dup_action_is_ignored():
+    gen1, gen2 = itertools.tee(gen(), 2)
+    set_test_case_id_generator(gen1)
+
     set_on_func_id_duplicate(OnFuncIdDuplicateAction.IGNORE)
     from .dup import dup1
 
     dup1(1)
+    tcid = next(gen2)
 
-    assert_test_case_files_exist(dup_id, _tcid)
+    assert_test_case_files_exist(dup_id, tcid)
 
     results = artest.artest.main()
     assert len(results) == 1
     assert results[0].fcid == dup_id
-    assert results[0].tcid == _tcid
+    assert results[0].tcid == tcid
     assert results[0].status == StatusTestResult.SUCCESS
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(dup_id, _tcid)
+@make_cleanup_test_case_files(dup_id)
 @make_callback(lambda: set_on_func_id_duplicate(None))
+@make_callback(set_test_case_id_generator)
 def test_dup2_when_dup_action_is_ignored():
+    gen1, gen2 = itertools.tee(gen(), 2)
+    set_test_case_id_generator(gen1)
+
     set_on_func_id_duplicate(OnFuncIdDuplicateAction.IGNORE)
     from .dup import dup2
 
     dup2(1)
+    tcid = next(gen2)
 
-    assert_test_case_files_exist(dup_id, _tcid)
+    assert_test_case_files_exist(dup_id, tcid)
 
     results = artest.artest.main()
     assert len(results) == 1
     assert results[0].fcid == dup_id
-    assert results[0].tcid == _tcid
+    assert results[0].tcid == tcid
 
     # When you assign dup1 and dup2 to the same function id
     # with OnFuncIdDuplicateAction.IGNORE, the function will be

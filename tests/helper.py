@@ -70,20 +70,16 @@ def assert_test_case_files_exist(fcid, tcid, *, assert_not_exist=False):
     assert assert_not_exist ^ os.path.exists(f"./.artest/{fcid}/{tcid}/func")
 
 
-def cleanup_test_case_files(fcid, tcid):
+def cleanup_test_case_files(fcid):
     """Cleans up test case files.
 
     Args:
         fcid (str): The directory for the test case.
-        tcid (str): The test case ID.
     """
-    if tcid is None:
-        shutil.rmtree(f"./.artest/{fcid}", ignore_errors=True)
-    else:
-        shutil.rmtree(f"./.artest/{fcid}/{tcid}", ignore_errors=True)
+    shutil.rmtree(f"./.artest/{fcid}", ignore_errors=True)
 
 
-def make_cleanup_test_case_files(fcid, tcid):
+def make_cleanup_test_case_files(fcid):
     """Decorator factory to clean up test case files.
 
     Returns:
@@ -96,7 +92,7 @@ def make_cleanup_test_case_files(fcid, tcid):
             try:
                 func(*args, **kwargs)
             finally:
-                cleanup_test_case_files(fcid, tcid)
+                cleanup_test_case_files(fcid)
 
         return wrapper
 

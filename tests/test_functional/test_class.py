@@ -136,7 +136,7 @@ class Hello:
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(classmethod_id, None)
+@make_cleanup_test_case_files(classmethod_id)
 @make_cleanup_file(call_time_path(classmethod_id))
 def test_class_class_method():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -164,11 +164,11 @@ def test_class_class_method():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(decorator3_id, None)
+@make_cleanup_test_case_files(decorator3_id)
 @make_cleanup_file(call_time_path(decorator3_id))
-@make_cleanup_test_case_files(decorator2_id, None)
+@make_cleanup_test_case_files(decorator2_id)
 @make_cleanup_file(call_time_path(decorator2_id))
-@make_cleanup_test_case_files(decorator_and_property_id, None)
+@make_cleanup_test_case_files(decorator_and_property_id)
 @make_cleanup_file(call_time_path(decorator_and_property_id))
 def test_class_decorator3():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -207,7 +207,7 @@ def test_class_decorator3():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(decorator2_id, None)
+@make_cleanup_test_case_files(decorator2_id)
 @make_cleanup_file(call_time_path(decorator2_id))
 def test_class_decorator2():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -236,7 +236,7 @@ def test_class_decorator2():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(decorator_and_property_id, None)
+@make_cleanup_test_case_files(decorator_and_property_id)
 @make_cleanup_file(call_time_path(decorator_and_property_id))
 def test_class_decorator_and_property():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -265,7 +265,7 @@ def test_class_decorator_and_property():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(decorator_id, None)
+@make_cleanup_test_case_files(decorator_id)
 @make_cleanup_file(call_time_path(decorator_id))
 def test_class_decorator():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -294,7 +294,7 @@ def test_class_decorator():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(property_id, None)
+@make_cleanup_test_case_files(property_id)
 @make_cleanup_file(call_time_path(property_id))
 def test_class_property():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -323,8 +323,8 @@ def test_class_property():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(staticmethod_id, None)
-@make_cleanup_test_case_files(static_caller_id, None)
+@make_cleanup_test_case_files(staticmethod_id)
+@make_cleanup_test_case_files(static_caller_id)
 @make_cleanup_file(call_time_path(staticmethod_id))
 @make_cleanup_file(call_time_path(static_caller_id))
 def test_class_staticmethod_call():
@@ -360,7 +360,7 @@ def test_class_staticmethod_call():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(staticmethod_id, None)
+@make_cleanup_test_case_files(staticmethod_id)
 @make_cleanup_file(call_time_path(staticmethod_id))
 def test_class_staticmethod():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -389,7 +389,7 @@ def test_class_staticmethod():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello_id, None)
+@make_cleanup_test_case_files(hello_id)
 @make_cleanup_file(call_time_path(hello_id))
 @make_cleanup_file(call_time_path(stub_id))
 def test_class():

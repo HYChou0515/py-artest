@@ -52,7 +52,7 @@ another_lambda = autoreg(another_lambda_id)(
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(another_lambda_id, None)
+@make_cleanup_test_case_files(another_lambda_id)
 @make_cleanup_file(call_time_path(another_lambda_id))
 def test_standard_pickle_unpicklable_function_should_pass():
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -84,7 +84,7 @@ def test_standard_pickle_unpicklable_function_should_pass():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(func_id, None)
+@make_cleanup_test_case_files(func_id)
 def test_standard_pickle_unpicklable_output_should_fail():
     import pickle
 
@@ -104,7 +104,7 @@ def test_standard_pickle_unpicklable_output_should_fail():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(func_id, None)
+@make_cleanup_test_case_files(func_id)
 def test_good_when_serialize_bad_when_deserialize():
     import dill
 
@@ -135,7 +135,7 @@ def custom_is_equal(a, b):
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(func_id, None)
+@make_cleanup_test_case_files(func_id)
 @make_callback(lambda: set_is_equal(None))
 def test_good_when_serialize_good_when_deserialize():
     gen1, gen2 = itertools.tee(gen(), 2)

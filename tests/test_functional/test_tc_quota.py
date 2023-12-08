@@ -45,8 +45,8 @@ def func2(x):
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello_id, None)
-@make_cleanup_test_case_files(func2_id, None)
+@make_cleanup_test_case_files(hello_id)
+@make_cleanup_test_case_files(func2_id)
 @make_cleanup_file(call_time_path(hello_id))
 @make_cleanup_file(call_time_path(func2_id))
 @make_callback(reset_all_test_case_quota)
@@ -92,7 +92,7 @@ def test_fc_tc_quota_max_count():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello_id, None)
+@make_cleanup_test_case_files(hello_id)
 @make_cleanup_file(call_time_path(hello_id))
 @make_callback(reset_all_test_case_quota)
 def test_tc_quota_max_count():

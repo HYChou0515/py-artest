@@ -9,23 +9,20 @@ from tests.helper import (
     assert_test_case_files_exist,
     call_time_path,
     get_call_time,
+    make_callback,
     make_cleanup_file,
     make_cleanup_test_case_files,
     make_test_autoreg,
     set_call_time,
 )
 
-_tcid = "temp-test"
-
 
 def gen():
+    i = 0
     while True:
-        yield _tcid
+        yield str(i)
+        i += 1
 
-
-gen1, gen2 = itertools.tee(gen(), 2)
-
-set_test_case_id_generator(gen1)
 
 hello_id = "9cf9f5e5035e48c883374959379d0229"
 stub_id = "327d0c57c4574d229c3c3a7e6c29cf49"
@@ -47,10 +44,14 @@ def the_stub(iox):
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello_id, _tcid)
+@make_cleanup_test_case_files(hello_id)
 @make_cleanup_file(call_time_path(hello_id))
 @make_cleanup_file(call_time_path(stub_id))
+@make_callback(set_test_case_id_generator)
 def test_filelike():
+    gen1, gen2 = itertools.tee(gen(), 2)
+    set_test_case_id_generator(gen1)
+
     set_call_time(hello_id, 0)
     set_call_time(stub_id, 0)
 

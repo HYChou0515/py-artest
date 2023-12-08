@@ -22,17 +22,12 @@ hello2_id = "2aa3d51500af47b69971ec5b2e66d532"
 hello3_id = "1e6e0865a7e54d358b0b149351a24212"
 
 
-_tcid = "temp-test"
-
-
 def gen():
+    i = 0
     while True:
-        yield _tcid
+        yield str(i)
+        i += 1
 
-
-gen1, gen2 = itertools.tee(gen(), 2)
-
-set_test_case_id_generator(gen1)
 
 _message = []
 
@@ -71,14 +66,19 @@ def copy_with_different_id(input_file, output_file, id):
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello1_id, _tcid)
+@make_cleanup_test_case_files(hello1_id)
 @make_cleanup_file(f"{dirname}/hello1.py")
 @make_callback(lambda: set_message_formatter(None))
 @make_callback(lambda: set_printer(None))
 @make_callback(lambda: _message.clear())
+@make_callback(set_test_case_id_generator)
 def test_custom_message_formatter():
+    gen1, gen2 = itertools.tee(gen(), 2)
+    set_test_case_id_generator(gen1)
+
     set_printer(custom_printer)
     set_message_formatter(custom_message_formatter)
+
     tcid = next(gen2)
 
     copy_with_different_id(
@@ -104,7 +104,7 @@ def test_custom_message_formatter():
     assert len(_message) == 3
     assert (
         _message[0]
-        == f"custom: FAIL       fc={hello1_id} tc=temp-test msg=Outputs not matched."
+        == f"custom: FAIL       fc={hello1_id} tc=0 msg=Outputs not matched."
     )
     assert _message[1] == "Failed"
     assert (
@@ -114,12 +114,16 @@ def test_custom_message_formatter():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello2_id, _tcid)
+@make_cleanup_test_case_files(hello2_id)
 @make_cleanup_file(f"{dirname}/hello2.py")
 @make_callback(lambda: set_stringify_obj(None))
 @make_callback(lambda: set_printer(None))
 @make_callback(lambda: _message.clear())
+@make_callback(set_test_case_id_generator)
 def test_custom_stringify_obj():
+    gen1, gen2 = itertools.tee(gen(), 2)
+    set_test_case_id_generator(gen1)
+
     set_printer(custom_printer)
     set_stringify_obj(custom_stringify_obj)
     tcid = next(gen2)
@@ -146,7 +150,7 @@ def test_custom_stringify_obj():
     assert len(_message) == 3
     assert (
         _message[0]
-        == f"ARTEST: FAIL       fc={hello2_id} tc=temp-test msg=Outputs not matched. expected: return [Hello World!] actual: return [Hello World! This is a different string.]"
+        == f"ARTEST: FAIL       fc={hello2_id} tc=0 msg=Outputs not matched. expected: return [Hello World!] actual: return [Hello World! This is a different string.]"
     )
     assert _message[1] == "Failed"
     assert (
@@ -156,11 +160,15 @@ def test_custom_stringify_obj():
 
 
 @make_test_autoreg()
-@make_cleanup_test_case_files(hello3_id, _tcid)
+@make_cleanup_test_case_files(hello3_id)
 @make_cleanup_file(f"{dirname}/hello3.py")
 @make_callback(lambda: set_printer(None))
 @make_callback(lambda: _message.clear())
+@make_callback(set_test_case_id_generator)
 def test_default_stringify_obj():
+    gen1, gen2 = itertools.tee(gen(), 2)
+    set_test_case_id_generator(gen1)
+
     set_printer(custom_printer)
     tcid = next(gen2)
 
@@ -186,7 +194,7 @@ def test_default_stringify_obj():
     assert len(_message) == 3
     assert (
         _message[0]
-        == f"ARTEST: FAIL       fc={hello3_id} tc=temp-test msg=Output type mismatch: raise != return expected: return 'Hello World!' actual: raise ValueError('This should not be called')"
+        == f"ARTEST: FAIL       fc={hello3_id} tc=0 msg=Output type mismatch: raise != return expected: return 'Hello World!' actual: raise ValueError('This should not be called')"
     )
     assert _message[1] == "Failed"
     assert (
