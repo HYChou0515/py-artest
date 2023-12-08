@@ -8,11 +8,7 @@ from artest.config import set_test_case_id_generator
 from artest.types import StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
-    call_time_path,
     get_call_time,
-    make_callback,
-    make_cleanup_file,
-    make_cleanup_test_case_files,
     make_test_autoreg,
     set_call_time,
 )
@@ -60,11 +56,9 @@ def the_stub(x):
     raise TypeError(f"Stub {x}")
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(hello_id)
-@make_cleanup_file(call_time_path(hello_id))
-@make_cleanup_file(call_time_path(stub_id))
-@make_callback(set_test_case_id_generator)
+@make_test_autoreg(
+    fcid_list=[hello_id, stub_id],
+)
 def test_autoreg_exception():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -97,11 +91,9 @@ def test_autoreg_exception():
     assert get_call_time(stub_id) == 0  # stubbed by artest, should not be called
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(hello2_id)
-@make_cleanup_file(call_time_path(hello2))
-@make_cleanup_file(call_time_path(stub_id))
-@make_callback(set_test_case_id_generator)
+@make_test_autoreg(
+    fcid_list=[hello2_id, stub_id],
+)
 def test_autostub_exception():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -134,11 +126,9 @@ def test_autostub_exception():
     assert get_call_time(stub_id) == 0  # stubbed by artest, should not be called
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(hello3_id)
-@make_cleanup_file(call_time_path(hello3_id))
-@make_cleanup_file(call_time_path(stub_id))
-@make_callback(set_test_case_id_generator)
+@make_test_autoreg(
+    fcid_list=[hello3_id, stub_id],
+)
 def test_autostub_exception2():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)

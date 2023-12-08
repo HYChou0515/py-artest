@@ -9,13 +9,7 @@ from artest.config import (
     set_test_case_id_generator,
 )
 from artest.types import MessageRecord, StatusTestResult
-from tests.helper import (
-    assert_test_case_files_exist,
-    make_callback,
-    make_cleanup_file,
-    make_cleanup_test_case_files,
-    make_test_autoreg,
-)
+from tests.helper import assert_test_case_files_exist, make_test_autoreg
 
 hello1_id = "90fa3b3b15544f0dbbb6000d6aa64d5a"
 hello2_id = "2aa3d51500af47b69971ec5b2e66d532"
@@ -65,13 +59,11 @@ def copy_with_different_id(input_file, output_file, id):
             f.write(line.replace("{{place_holder_id}}", f'"{id}"'))
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(hello1_id)
-@make_cleanup_file(f"{dirname}/hello1.py")
-@make_callback(lambda: set_message_formatter(None))
-@make_callback(lambda: set_printer(None))
-@make_callback(lambda: _message.clear())
-@make_callback(set_test_case_id_generator)
+@make_test_autoreg(
+    fcid_list=[hello1_id],
+    more_files_to_clean=[f"{dirname}/hello1.py"],
+    more_callbacks=[lambda: _message.clear()],
+)
 def test_custom_message_formatter():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -113,13 +105,11 @@ def test_custom_message_formatter():
     )
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(hello2_id)
-@make_cleanup_file(f"{dirname}/hello2.py")
-@make_callback(lambda: set_stringify_obj(None))
-@make_callback(lambda: set_printer(None))
-@make_callback(lambda: _message.clear())
-@make_callback(set_test_case_id_generator)
+@make_test_autoreg(
+    fcid_list=[hello2_id],
+    more_files_to_clean=[f"{dirname}/hello2.py"],
+    more_callbacks=[lambda: _message.clear()],
+)
 def test_custom_stringify_obj():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -159,12 +149,11 @@ def test_custom_stringify_obj():
     )
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(hello3_id)
-@make_cleanup_file(f"{dirname}/hello3.py")
-@make_callback(lambda: set_printer(None))
-@make_callback(lambda: _message.clear())
-@make_callback(set_test_case_id_generator)
+@make_test_autoreg(
+    fcid_list=[hello3_id],
+    more_files_to_clean=[f"{dirname}/hello3.py"],
+    more_callbacks=[lambda: _message.clear()],
+)
 def test_default_stringify_obj():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)

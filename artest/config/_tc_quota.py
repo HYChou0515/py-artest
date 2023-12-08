@@ -29,10 +29,8 @@ _func_test_case_quota: dict[str, _TestCaseQuota] = {}
 def reset_all_test_case_quota():
     """Reset all test case quota."""
     global _func_test_case_quota
-    global _func_test_case_quota_config
     global _default_test_case_quota_config
     _func_test_case_quota = {}
-    _func_test_case_quota_config = {}
     _default_test_case_quota_config = ConfigTestCaseQuota()
 
 

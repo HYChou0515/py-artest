@@ -20,7 +20,7 @@ def _default_stringify_obj(obj):
 _stringify_obj = _default_stringify_obj
 
 
-def set_stringify_obj(func):
+def set_stringify_obj(func=None):
     """Sets the function for converting an object to a string.
 
     Args:
@@ -74,7 +74,7 @@ def _default_message_formatter(message_record: MessageRecord):
 _message_formatter = _default_message_formatter
 
 
-def set_message_formatter(func):
+def set_message_formatter(func=None):
     """Sets the function for formatting the message.
 
     Args:
@@ -109,7 +109,7 @@ def _default_printer(s):
 _printer = _default_printer
 
 
-def set_printer(func):
+def set_printer(func=None):
     """Sets the function for printing the message.
 
     Args:

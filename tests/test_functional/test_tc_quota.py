@@ -3,19 +3,11 @@ from collections import Counter
 
 import artest.artest
 from artest import autoreg
-from artest.config import (
-    reset_all_test_case_quota,
-    set_test_case_id_generator,
-    set_test_case_quota,
-)
+from artest.config import set_test_case_id_generator, set_test_case_quota
 from artest.types import ConfigTestCaseQuota, StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
-    call_time_path,
     get_call_time,
-    make_callback,
-    make_cleanup_file,
-    make_cleanup_test_case_files,
     make_test_autoreg,
     set_call_time,
 )
@@ -44,12 +36,9 @@ def func2(x):
     return x + 1
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(hello_id)
-@make_cleanup_test_case_files(func2_id)
-@make_cleanup_file(call_time_path(hello_id))
-@make_cleanup_file(call_time_path(func2_id))
-@make_callback(reset_all_test_case_quota)
+@make_test_autoreg(
+    fcid_list=[hello_id, func2_id],
+)
 def test_fc_tc_quota_max_count():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
@@ -91,10 +80,9 @@ def test_fc_tc_quota_max_count():
     assert get_call_time(func2_id) == 2
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(hello_id)
-@make_cleanup_file(call_time_path(hello_id))
-@make_callback(reset_all_test_case_quota)
+@make_test_autoreg(
+    fcid_list=[hello_id],
+)
 def test_tc_quota_max_count():
     set_test_case_quota(max_count=2)
 
