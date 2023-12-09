@@ -21,16 +21,16 @@ def gen():
         i += 1
 
 
-hello_id = "7ea1cadf5f034540949a3b5e2ac12865"
-stub_id = "6e435a4e5792483891074fb12af54672"
-staticmethod_id = "ccfd4bde183f43f589b8b8bb80bbdda4"
-static_caller_id = "80098e3731164b568032d333ae9ca04a"
-property_id = "0a3efd01af67495b89c63c43f17bdc63"
-decorator_id = "5cf078f0f42642c7a1a7c6283aa68c5b"
-decorator2_id = "2fa94dbc6f5d42198ecbb140e013caad"
-decorator3_id = "55a09978ce314120abb31506d89672db"
-decorator_and_property_id = "afb995a2a5054062aa2add3ec0b84abb"
-classmethod_id = "d9ee01b913694410aaa5c0a432199068"
+hello_id = "hello_id-7ea1cadf5f034540949a3b5e2ac12865"
+stub_id = "stub_id-6e435a4e5792483891074fb12af54672"
+staticmethod_id = "staticmethod_id-ccfd4bde183f43f589b8b8bb80bbdda4"
+static_caller_id = "static_caller_id-80098e3731164b568032d333ae9ca04a"
+property_id = "property_id-0a3efd01af67495b89c63c43f17bdc63"
+decorator_id = "decorator_id-5cf078f0f42642c7a1a7c6283aa68c5b"
+decorator2_id = "decorator2_id-2fa94dbc6f5d42198ecbb140e013caad"
+decorator3_id = "decorator3_id-55a09978ce314120abb31506d89672db"
+decorator_and_property_id = "decorator_and_property_id-afb995a2a5054062aa2add3ec0b84abb"
+classmethod_id = "classmethod_id-d9ee01b913694410aaa5c0a432199068"
 
 
 def custom_decorator(func):

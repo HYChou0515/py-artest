@@ -6,10 +6,7 @@ from artest.config import set_test_case_id_generator
 from artest.types import StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
-    call_time_path,
     get_call_time,
-    make_cleanup_file,
-    make_cleanup_test_case_files,
     make_test_autoreg,
     set_call_time,
 )
@@ -39,10 +36,7 @@ def the_stub(x):
     return x**3 + x**2 - 5 * x + 1
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(hello_id)
-@make_cleanup_file(call_time_path(hello_id))
-@make_cleanup_file(call_time_path(stub_id))
+@make_test_autoreg(fcid_list=[hello_id, stub_id])
 def test_simple():
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)

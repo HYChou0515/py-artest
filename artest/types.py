@@ -124,6 +124,7 @@ class ArtestConfig:
     include_test_case: Union[None, list[str]] = None
     exclude_function: Union[None, list[str]] = None
     exclude_test_case: Union[None, list[str]] = None
+    enable_fastreg: bool = False
 
 
 @dataclass
