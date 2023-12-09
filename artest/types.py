@@ -124,3 +124,45 @@ class ArtestConfig:
     include_test_case: Union[None, list[str]] = None
     exclude_function: Union[None, list[str]] = None
     exclude_test_case: Union[None, list[str]] = None
+
+
+@dataclass
+class MetadataTestCase:
+    """Metadata for a test case.
+
+    Attributes:
+        version (str): The version of the test case.
+        test_case_created_time (str): The created time of the test case.
+        func_id (str): The function id.
+        test_case_id (str): The test case id.
+        hash_hex (str): The hash of the test case.
+        bytes_size (int): The size of the test case in bytes.
+    """
+
+    version: str
+    test_case_created_time: str
+    func_id: str
+    test_case_id: str
+    hash_hex: str
+    bytes_size: int
+
+
+@dataclass
+class Metadata:
+    """Contains metadata for a collection of test cases.
+
+    Attributes:
+        test_cases (list[MetadataTestCase]): A list of MetadataTestCase objects representing individual test cases.
+    """
+
+    test_cases: list[MetadataTestCase] = None
+
+    def __post_init__(self):
+        """Initializes Metadata object by converting provided test case data into MetadataTestCase objects.
+
+        This method is particularly useful when loading metadata from a JSON file.
+        """
+        if isinstance(self.test_cases, (list, tuple)):
+            self.test_cases = [MetadataTestCase(**tc) for tc in self.test_cases]
+        if self.test_cases is None:
+            self.test_cases = []

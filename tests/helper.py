@@ -16,6 +16,7 @@ import shutil
 from contextlib import contextmanager
 from functools import wraps
 
+from artest.artest import _meta_handler
 from artest.config import (
     reset_all_test_case_quota,
     set_is_equal,
@@ -69,7 +70,7 @@ def assert_test_case_files_exist(fcid, tcid, *, assert_not_exist=False):
     """Asserts the existence of test case files.
 
     Args:
-        fcid (str): The directory for the test case.
+        fcid (str): The function ID.
         tcid (str): The test case ID.
         assert_not_exist (bool, optional): Whether to assert that the files do not exist.
     """
@@ -78,11 +79,24 @@ def assert_test_case_files_exist(fcid, tcid, *, assert_not_exist=False):
     assert assert_not_exist ^ os.path.exists(f"./.artest/{fcid}/{tcid}/func")
 
 
+def assert_metadata_files_exist(fcid, tcid):
+    """Asserts the existence of metadata files.
+
+    Args:
+        fcid (str): The function ID.
+        tcid (str): The test case ID.
+    """
+    assert os.path.exists("./.artest/meta.json")
+    from artest import search_meta
+
+    assert search_meta(fcid, tcid, on_missing="none") is not None
+
+
 def cleanup_test_case_files(fcid):
     """Cleans up test case files.
 
     Args:
-        fcid (str): The directory for the test case.
+        fcid (str): The function ID.
     """
     shutil.rmtree(f"./.artest/{fcid}", ignore_errors=True)
 
@@ -173,6 +187,7 @@ def make_test_autoreg(*, fcid_list=None, more_files_to_clean=None, more_callback
                 _func = make_callback(set_printer)(_func)
                 _func = make_callback(set_stringify_obj)(_func)
                 _func = make_callback(reset_all_test_case_quota)(_func)
+                _func = make_callback(_meta_handler.remove)(_func)
                 _func(*args, **kwargs)
 
         return wrapper
