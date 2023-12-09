@@ -10,19 +10,24 @@ Functions:
 """
 
 import ast
+import dataclasses
+import datetime as dt
 import hashlib
 import importlib
 import inspect
+import json
 import os
 import sys
+import tempfile
 import warnings
 from collections import Counter
 from collections.abc import MutableMapping
 from contextvars import ContextVar
 from functools import wraps
 from glob import glob
-from typing import Optional
+from typing import Literal, Optional
 
+import artest
 from artest.config import (
     get_artest_root,
     get_assert_pickled_object_on_case_mode,
@@ -44,6 +49,8 @@ from artest.types import (
     FunctionOutput,
     FunctionOutputType,
     MessageRecord,
+    Metadata,
+    MetadataTestCase,
     OnFuncIdDuplicateAction,
     OnPickleDumpErrorAction,
     StatusTestResult,
@@ -257,6 +264,139 @@ def _get_artest_mode():
     return _mode
 
 
+class _Paths:
+    @staticmethod
+    def _build_path(fcid: str, tcid: str, basename: str):
+        return os.path.join(get_artest_root(), fcid, tcid, basename)
+
+    @staticmethod
+    def root(fcid: str, tcid: str):
+        return os.path.join(get_artest_root(), fcid, tcid)
+
+    def inputs(self, fcid: str, tcid: str):
+        return self._build_path(fcid, tcid, "inputs")
+
+    def func(self, fcid: str, tcid: str):
+        return self._build_path(fcid, tcid, "func")
+
+    def outputs(self, fcid: str, tcid: str):
+        return self._build_path(fcid, tcid, "outputs")
+
+    def stub(
+        self,
+        caller_fcid: str,
+        tcid: str,
+        stub_fcid: str,
+        call_count: int,
+        input_hash: str,
+    ):
+        return self._build_path(
+            caller_fcid,
+            tcid,
+            os.path.join("stub", f"{stub_fcid}.{call_count}.{input_hash}.output"),
+        )
+
+
+_paths = _Paths()
+
+
+class _MetaHandler:
+    _META_FILE_NAME = "meta.json"
+
+    @property
+    def meta_path(self):
+        return os.path.join(get_artest_root(), self._META_FILE_NAME)
+
+    def remove(self):
+        if os.path.isfile(self.meta_path):
+            os.remove(self.meta_path)
+
+    def read_meta(self):
+        if os.path.isfile(self.meta_path):
+            with open(self.meta_path, "r") as f:
+                meta_json = json.load(f)
+        else:
+            meta_json = {}
+        if "test_cases" not in meta_json:
+            meta_json["test_cases"] = []
+        return Metadata(**meta_json)
+
+    def save_meta(self, meta: Metadata):
+        with tempfile.NamedTemporaryFile("w+") as tmp:
+            json.dump(dataclasses.asdict(meta), tmp, indent=4)
+            tmp.seek(0)
+
+            with open(self.meta_path, "w") as f:
+                f.write(tmp.read())
+
+    def add_test_case_meta(self, tc_meta: MetadataTestCase):
+        meta = self.read_meta()
+        meta.test_cases.append(tc_meta)
+        self.save_meta(meta)
+
+    @staticmethod
+    def build_meta(fcid: str, tcid: str):
+        """Build metadata for the test case.
+
+        Args:
+            fcid (str): the function id
+            tcid (str): the test case id
+        """
+        f_root = _paths.root(fcid, tcid)
+        if not os.path.isdir(f_root):
+            raise ValueError(f"Test case {fcid}/{tcid} does not exist.")
+
+        # read all files under the test case root
+        # and calculate the hash
+
+        sha256_gen = hashlib.sha256()
+        total_bytes_size = 0
+        for fname in sorted(glob(f"{f_root}/**/*", recursive=True)):
+            if not os.path.isfile(fname):
+                continue
+            total_bytes_size += os.path.getsize(fname)
+            with open(fname, "rb") as f:
+                sha256_gen.update(f"<{fname}>".encode())
+                sha256_gen.update(f.read())
+                sha256_gen.update(f"</{fname}>".encode())
+        hash_hex = sha256_gen.hexdigest()
+
+        tc_meta = MetadataTestCase(
+            version=artest.__version__,
+            test_case_created_time=dt.datetime.now().astimezone().isoformat(),
+            func_id=fcid,
+            test_case_id=tcid,
+            hash_hex=hash_hex,
+            bytes_size=total_bytes_size,
+        )
+        return tc_meta
+
+
+_meta_handler = _MetaHandler()
+
+
+def search_meta(fcid: str, tcid: str, on_missing: Literal["none", "raise"] = "raise"):
+    """Search the metadata for a test case.
+
+    Args:
+        fcid (str): The function ID.
+        tcid (str): The test case ID.
+        on_missing (Literal['none', 'raise']): The action when the test case is not found.
+            If 'none', return None.
+            If 'raise', raise a ValueError.
+
+    Returns:
+        MetadataTestCase: The metadata for the test case.
+    """
+    meta = _meta_handler.read_meta()
+    for tc_meta in meta.test_cases:
+        if tc_meta.func_id == fcid and tc_meta.test_case_id == tcid:
+            return tc_meta
+    if on_missing == "raise":
+        raise ValueError(f"Test case {fcid}/{tcid} not found.")
+    return None
+
+
 class _TestCaseSerializer:
     """Handles serialization and deserialization of test case objects."""
 
@@ -388,11 +528,6 @@ class _TestCaseSerializer:
 
 _serializer = _TestCaseSerializer()
 
-
-def _build_path(fcid, tcid, basename):
-    return os.path.join(get_artest_root(), fcid, tcid, basename)
-
-
 _AUTOREG_REGISTERED = set()
 _AUTOSTUB_REGISTERED = set()
 _test_stack = []
@@ -499,14 +634,18 @@ def autoreg(
                 return disable_mode(*args, **kwargs)
             tcid = next(get_test_case_id_generator())
             _test_stack.append((func_id, tcid))
-            f_inputs = _build_path(func_id, tcid, "inputs")
-            f_outputs = _build_path(func_id, tcid, "outputs")
-            f_func = _build_path(func_id, tcid, "func")
+            f_inputs = _paths.inputs(func_id, tcid)
+            f_outputs = _paths.outputs(func_id, tcid)
+            f_func = _paths.func(func_id, tcid)
             _serializer.save_inputs((args, kwargs), f_inputs)
             _serializer.save_func((func_id, tcid), f_func)
 
             output = _get_func_output(func, args, kwargs)
             _serializer.save(output, f_outputs)
+
+            tc_meta = _meta_handler.build_meta(func_id, tcid)
+            _meta_handler.add_test_case_meta(tc_meta)
+
             if get_assert_pickled_object_on_case_mode():
                 output_saved = _serializer.read(f_outputs)
                 assert _serializer.dumps(output) == _serializer.dumps(output_saved)
@@ -597,10 +736,12 @@ def autostub(
                 _stub_counter[(func_id, caller_fcid, tcid)] = call_count + 1
                 _serializer.save(
                     output,
-                    _build_path(
+                    _paths.stub(
                         caller_fcid,
                         tcid,
-                        _basename(func_id, call_count, input_hash),
+                        func_id,
+                        call_count,
+                        input_hash,
                     ),
                 )
             if output.output_type == FunctionOutputType.RAISE:
@@ -616,10 +757,12 @@ def autostub(
             _stub_counter[(func_id, caller_fcid, tcid)] = call_count + 1
 
             input_hash = _find_input_hash(func, args, kwargs)
-            path = _build_path(
+            path = _paths.stub(
                 caller_fcid,
                 tcid,
-                _basename(func_id, call_count, input_hash),
+                func_id,
+                call_count,
+                input_hash,
             )
             if not os.path.exists(path):
                 raise ValueError(f"Stub file missing: {path}")
@@ -658,9 +801,9 @@ class _TestRunner:
         self.tcid = tcid
         self.artest_config = artest_config
 
-        self.f_inputs = _build_path(self.func_id, self.tcid, "inputs")
-        self.f_func = _build_path(self.func_id, self.tcid, "func")
-        self.f_outputs = _build_path(self.func_id, self.tcid, "outputs")
+        self.f_inputs = _paths.inputs(func_id, tcid)
+        self.f_func = _paths.func(func_id, tcid)
+        self.f_outputs = _paths.outputs(func_id, tcid)
 
         self._inputs = None
         self._func = None
