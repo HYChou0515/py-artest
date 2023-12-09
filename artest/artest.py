@@ -17,6 +17,7 @@ import importlib
 import inspect
 import json
 import os
+import shutil
 import sys
 import tempfile
 import warnings
@@ -637,18 +638,24 @@ def autoreg(
             f_inputs = _paths.inputs(func_id, tcid)
             f_outputs = _paths.outputs(func_id, tcid)
             f_func = _paths.func(func_id, tcid)
-            _serializer.save_inputs((args, kwargs), f_inputs)
-            _serializer.save_func((func_id, tcid), f_func)
 
-            output = _get_func_output(func, args, kwargs)
-            _serializer.save(output, f_outputs)
+            try:
+                _serializer.save_inputs((args, kwargs), f_inputs)
+                _serializer.save_func((func_id, tcid), f_func)
+
+                output = _get_func_output(func, args, kwargs)
+                _serializer.save(output, f_outputs)
+            except Exception as e:
+                # remove the test case if there is an error
+                shutil.rmtree(_paths.root(func_id, tcid), ignore_errors=True)
+                raise e
 
             tc_meta = _meta_handler.build_meta(func_id, tcid)
             _meta_handler.add_test_case_meta(tc_meta)
 
             if get_assert_pickled_object_on_case_mode():
                 output_saved = _serializer.read(f_outputs)
-                assert _serializer.dumps(output) == _serializer.dumps(output_saved)
+                assert get_is_equal()(output, output_saved)
             _test_stack.pop()
             if output.output_type == FunctionOutputType.RAISE:
                 raise output.output
@@ -702,8 +709,6 @@ def autostub(
     if func_id in _AUTOSTUB_REGISTERED:
         if on_duplicate == OnFuncIdDuplicateAction.RAISE:
             raise ValueError(f"Function {func_id} is already registered in autostub.")
-    #         if on_duplicate == OnFuncIdDuplicateAction.IGNORE:
-    #             return lambda func: func
     else:
         _AUTOSTUB_REGISTERED.add(func_id)
 
@@ -712,10 +717,6 @@ def autostub(
 
         def disable_mode(*args, **kwargs):
             return func(*args, **kwargs)
-
-        def _basename(func_id, call_count, input_hash):
-            """Generates the basename for stub output files."""
-            return os.path.join("stub", f"{func_id}.{call_count}.{input_hash}.output")
 
         def case_mode(*args, **kwargs):
             """Handles the functionality under 'Case Mode'."""
