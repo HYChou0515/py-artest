@@ -648,7 +648,7 @@ def autoreg(
 
             if get_assert_pickled_object_on_case_mode():
                 output_saved = _serializer.read(f_outputs)
-                assert _serializer.dumps(output) == _serializer.dumps(output_saved)
+                assert get_is_equal()(output, output_saved)
             _test_stack.pop()
             if output.output_type == FunctionOutputType.RAISE:
                 raise output.output

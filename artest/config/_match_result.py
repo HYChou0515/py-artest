@@ -5,12 +5,18 @@ Functions and Classes:
     - get_is_equal(): Gets the function for comparing two objects.
 
 """
+from artest.config._pickler import get_pickler
 
 
 def _default_is_equal(actual, expected):
-    if isinstance(actual, Exception) and isinstance(expected, Exception):
-        return str(actual) == str(expected) and type(actual) == type(expected)
-    return actual == expected
+    try:
+        if isinstance(actual, Exception) and isinstance(expected, Exception):
+            return str(actual) == str(expected) and type(actual) == type(expected)
+        if actual == expected:
+            return True
+        return get_pickler().dumps(actual) == get_pickler().dumps(expected)
+    except Exception:
+        return False
 
 
 _is_equal = _default_is_equal
