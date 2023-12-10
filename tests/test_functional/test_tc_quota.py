@@ -1,6 +1,8 @@
 import itertools
 from collections import Counter
 
+import pytest
+
 import artest.artest
 from artest import autoreg
 from artest.config import set_test_case_id_generator, set_test_case_quota
@@ -36,10 +38,11 @@ def func2(x):
     return x + 1
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[hello_id, func2_id],
 )
-def test_fc_tc_quota_max_count():
+def test_fc_tc_quota_max_count(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -66,7 +69,8 @@ def test_fc_tc_quota_max_count():
     set_call_time(hello_id, 0)
     set_call_time(func2_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 5
     fcid_counter = Counter(tr.fcid for tr in test_results)
@@ -80,10 +84,11 @@ def test_fc_tc_quota_max_count():
     assert get_call_time(func2_id) == 2
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[hello_id],
 )
-def test_tc_quota_max_count():
+def test_tc_quota_max_count(enable_fastreg):
     set_test_case_quota(max_count=2)
 
     gen1, gen2 = itertools.tee(gen(), 2)
@@ -104,7 +109,8 @@ def test_tc_quota_max_count():
 
     set_call_time(hello_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 2
     assert {tr.fcid for tr in test_results} == {hello_id}

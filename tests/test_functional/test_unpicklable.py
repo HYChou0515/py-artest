@@ -47,8 +47,9 @@ another_lambda = autoreg(another_lambda_id)(
 )
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(fcid_list=[another_lambda_id])
-def test_standard_pickle_unpicklable_function_should_pass():
+def test_standard_pickle_unpicklable_function_should_pass(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -67,7 +68,8 @@ def test_standard_pickle_unpicklable_function_should_pass():
 
     set_call_time(another_lambda_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 1
     assert test_results[0].fcid == another_lambda_id
@@ -126,8 +128,9 @@ def custom_is_equal(a, b):
         return inspect.getsource(a) == inspect.getsource(b)
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(fcid_list=[func_id])
-def test_good_when_serialize_good_when_deserialize():
+def test_good_when_serialize_good_when_deserialize(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -156,7 +159,8 @@ def test_good_when_serialize_good_when_deserialize():
     returns_some_lambda(5)
 
     assert_test_case_files_exist(func_id, _tcid)
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 1
     assert test_results[0].fcid == func_id

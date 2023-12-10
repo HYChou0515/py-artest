@@ -21,7 +21,7 @@ import shutil
 import sys
 import tempfile
 import warnings
-from collections import Counter
+from collections import Counter, defaultdict
 from contextvars import ContextVar
 from functools import wraps
 from glob import glob
@@ -299,6 +299,22 @@ class _Paths:
             os.path.join("fastreg", f"{reg_fcid}.{call_count}.{input_hash}.output"),
         )
 
+    def fastreg_stub_counter(
+        self,
+        caller_fcid: str,
+        tcid: str,
+        reg_fcid: str,
+        call_count: int,
+        input_hash: str,
+    ):
+        return self._build_path(
+            caller_fcid,
+            tcid,
+            os.path.join(
+                "fastreg", f"{reg_fcid}.{call_count}.{input_hash}.stub_counter"
+            ),
+        )
+
 
 _paths = _Paths()
 
@@ -568,18 +584,6 @@ def _find_input_hash(func, args, kwargs):
     return input_hash
 
 
-def _find_simple_input_hash(func, args, kwargs):
-    cls = _find_class(func)
-    arguments = inspect.getcallargs(func, *args, **kwargs)
-    if cls is not None:
-        if "self" in arguments:
-            del arguments["self"]
-        if "cls" in arguments:
-            del arguments["cls"]
-    input_hash = _serializer.calc_hash(arguments)
-    return input_hash
-
-
 _fastreg_counter = {}
 
 
@@ -652,6 +656,18 @@ def autoreg(
                 return disable_mode(*args, **kwargs)
             tcid = next(get_test_case_id_generator())
             _test_stack.append((func_id, tcid))
+
+            # save fastreg output to save time
+            # _test_stack[-1] is this function
+            # _test_stack[-2] is the caller
+            if len(_test_stack) <= 1:
+                # this is the top level function
+                caller_fcid_tcid = None
+            elif _test_stack[-2] is None:
+                # this is a stub, no need to save
+                caller_fcid_tcid = None
+            else:
+                caller_fcid_tcid = _test_stack[-2]
             try:
                 f_inputs = _paths.inputs(func_id, tcid)
                 f_outputs = _paths.outputs(func_id, tcid)
@@ -661,20 +677,25 @@ def autoreg(
                     _serializer.save_inputs((args, kwargs), f_inputs)
                     _serializer.save_func((func_id, tcid), f_func)
 
+                    if caller_fcid_tcid is not None:
+                        counter_before_call = _stub_counter[caller_fcid_tcid].copy()
+                    else:
+                        counter_before_call = {}
                     output = _get_func_output(func, args, kwargs)
                     _serializer.save(output, f_outputs)
 
-                    # save fastreg output to save time
-                    # _test_stack[-1] is this function
-                    # _test_stack[-2] is the caller
-                    if len(_test_stack) <= 1:
-                        # this is the top level function
-                        pass
-                    elif _test_stack[-2] is None:
-                        # this is a stub, no need to save
-                        pass
-                    else:
-                        caller_fcid, caller_tcid = _test_stack[-2]
+                    if caller_fcid_tcid is not None:
+                        caller_fcid, caller_tcid = caller_fcid_tcid
+                        counter_after_call = _stub_counter[caller_fcid, caller_tcid]
+                        counter_delta = {}
+                        for stub_fcid, stub_call_count in counter_after_call.items():
+                            delta = stub_call_count - counter_before_call.get(
+                                stub_fcid, 0
+                            )
+                            if delta < 0:
+                                raise ValueError("Stub counter decreased.")
+                            counter_delta[stub_fcid] = delta
+
                         call_count = _fastreg_counter.get(
                             (func_id, caller_fcid, caller_tcid), 0
                         )
@@ -684,6 +705,16 @@ def autoreg(
                         _serializer.save(
                             output,
                             _paths.fastreg(
+                                caller_fcid,
+                                caller_tcid,
+                                func_id,
+                                call_count,
+                                _find_input_hash(func, args, kwargs),
+                            ),
+                        )
+                        _serializer.save(
+                            counter_delta,
+                            _paths.fastreg_stub_counter(
                                 caller_fcid,
                                 caller_tcid,
                                 func_id,
@@ -709,29 +740,57 @@ def autoreg(
             return output.output
 
         def test_mode(*args, **kwargs):
-            if _enable_fastreg_var.get():
-                caller_fcid = _fcid_var.get()
-                tcid = _tcid_var.get()
+            tcid = _tcid_var.get()
+            _fcid_var.get()
+            _test_stack.append((func_id, tcid))
+            try:
+                if len(_test_stack) <= 1:
+                    # this is the top level function
+                    caller_fcid_tcid = None
+                elif _test_stack[-2] is None:
+                    # this is a stub, no need to save
+                    caller_fcid_tcid = None
+                else:
+                    caller_fcid_tcid = _test_stack[-2]
+                if caller_fcid_tcid is not None and _enable_fastreg_var.get():
+                    caller_fcid, _ = caller_fcid_tcid
+                    # load fastreg output to save time
+                    call_count = _fastreg_counter.get((func_id, caller_fcid, tcid), 0)
+                    _fastreg_counter[(func_id, caller_fcid, tcid)] = call_count + 1
 
-                # load fastreg output to save time
-                call_count = _fastreg_counter.get((func_id, caller_fcid, tcid), 0)
-                _fastreg_counter[(func_id, caller_fcid, tcid)] = call_count + 1
+                    input_hash = _find_input_hash(func, args, kwargs)
 
-                input_hash = _find_simple_input_hash(func, args, kwargs)
-                path = _paths.fastreg(
-                    caller_fcid,
-                    tcid,
-                    func_id,
-                    call_count,
-                    input_hash,
-                )
+                    stub_counter_path = _paths.fastreg_stub_counter(
+                        caller_fcid,
+                        tcid,
+                        func_id,
+                        call_count,
+                        input_hash,
+                    )
+                    if os.path.exists(stub_counter_path):
+                        delta_stub_counter: dict = _serializer.read(stub_counter_path)
+                        for stub_fcid, stub_call_count in delta_stub_counter.items():
+                            if stub_fcid not in _stub_counter[caller_fcid, tcid]:
+                                _stub_counter[caller_fcid, tcid][stub_fcid] = 0
+                            _stub_counter[caller_fcid, tcid][
+                                stub_fcid
+                            ] += stub_call_count
+                    output_path = _paths.fastreg(
+                        caller_fcid,
+                        tcid,
+                        func_id,
+                        call_count,
+                        input_hash,
+                    )
 
-                if os.path.exists(path):
-                    output: FunctionOutput = _serializer.read(path)
-                    if output.output_type == FunctionOutputType.RAISE:
-                        raise output.output
-                    return output.output
-            return func(*args, **kwargs)
+                    if os.path.exists(output_path):
+                        output: FunctionOutput = _serializer.read(output_path)
+                        if output.output_type == FunctionOutputType.RAISE:
+                            raise output.output
+                        return output.output
+                return func(*args, **kwargs)
+            finally:
+                _test_stack.pop()
 
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -749,7 +808,7 @@ def autoreg(
     return _autoreg
 
 
-_stub_counter = {}
+_stub_counter = defaultdict(dict)
 
 
 def autostub(
@@ -804,8 +863,8 @@ def autostub(
                 if stack_item is None:
                     break
                 caller_fcid, tcid = stack_item
-                call_count = _stub_counter.get((func_id, caller_fcid, tcid), 0)
-                _stub_counter[(func_id, caller_fcid, tcid)] = call_count + 1
+                call_count = _stub_counter[caller_fcid, tcid].get(func_id, 0)
+                _stub_counter[caller_fcid, tcid][func_id] = call_count + 1
                 _serializer.save(
                     output,
                     _paths.stub(
@@ -825,8 +884,8 @@ def autostub(
             caller_fcid = _fcid_var.get()
             tcid = _tcid_var.get()
 
-            call_count = _stub_counter.get((func_id, caller_fcid, tcid), 0)
-            _stub_counter[(func_id, caller_fcid, tcid)] = call_count + 1
+            call_count = _stub_counter[caller_fcid, tcid].get(func_id, 0)
+            _stub_counter[caller_fcid, tcid][func_id] = call_count + 1
 
             input_hash = _find_input_hash(func, args, kwargs)
             path = _paths.stub(

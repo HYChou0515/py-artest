@@ -1,6 +1,8 @@
 import io
 import itertools
 
+import pytest
+
 import artest.artest
 from artest import autoreg, autostub
 from artest.config import set_test_case_id_generator
@@ -39,10 +41,11 @@ def the_stub(iox):
     return x * 3
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[hello_id, stub_id],
 )
-def test_filelike():
+def test_filelike(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -60,7 +63,8 @@ def test_filelike():
     set_call_time(hello_id, 0)
     set_call_time(stub_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 1
     assert test_results[0].fcid == hello_id

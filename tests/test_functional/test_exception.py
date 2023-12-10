@@ -56,10 +56,11 @@ def the_stub(x):
     raise TypeError(f"Stub {x}")
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[hello_id, stub_id],
 )
-def test_autoreg_exception():
+def test_autoreg_exception(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -80,7 +81,8 @@ def test_autoreg_exception():
     set_call_time(hello_id, 0)
     set_call_time(stub_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 1
     assert test_results[0].fcid == hello_id
@@ -91,10 +93,11 @@ def test_autoreg_exception():
     assert get_call_time(stub_id) == 0  # stubbed by artest, should not be called
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[hello2_id, stub_id],
 )
-def test_autostub_exception():
+def test_autostub_exception(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -115,7 +118,8 @@ def test_autostub_exception():
     set_call_time(hello2_id, 0)
     set_call_time(stub_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 1
     assert test_results[0].fcid == hello2_id
@@ -126,10 +130,11 @@ def test_autostub_exception():
     assert get_call_time(stub_id) == 0  # stubbed by artest, should not be called
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[hello3_id, stub_id],
 )
-def test_autostub_exception2():
+def test_autostub_exception2(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -148,7 +153,8 @@ def test_autostub_exception2():
     set_call_time(hello3_id, 0)
     set_call_time(stub_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 1
     assert test_results[0].fcid == hello3_id

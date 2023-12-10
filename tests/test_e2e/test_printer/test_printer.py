@@ -1,6 +1,8 @@
 import itertools
 import os
 
+import pytest
+
 import artest.artest
 from artest.config import (
     set_message_formatter,
@@ -59,12 +61,14 @@ def copy_with_different_id(input_file, output_file, id):
             f.write(line.replace("{{place_holder_id}}", f'"{id}"'))
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[hello1_id],
     more_files_to_clean=[f"{dirname}/hello1.py"],
     more_callbacks=[lambda: _message.clear()],
+    remove_modules=["hello1"],
 )
-def test_custom_message_formatter():
+def test_custom_message_formatter(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -87,7 +91,8 @@ def test_custom_message_formatter():
         f"{dirname}/hello.py.after", f"{dirname}/hello1.py", hello1_id
     )
 
-    results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    results = artest.artest.main(args)
     assert len(results) == 1
     assert results[0].fcid == hello1_id
     assert results[0].tcid == tcid
@@ -105,12 +110,14 @@ def test_custom_message_formatter():
     )
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[hello2_id],
     more_files_to_clean=[f"{dirname}/hello2.py"],
     more_callbacks=[lambda: _message.clear()],
+    remove_modules=["hello2"],
 )
-def test_custom_stringify_obj():
+def test_custom_stringify_obj(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -131,7 +138,8 @@ def test_custom_stringify_obj():
         f"{dirname}/hello.py.after", f"{dirname}/hello2.py", hello2_id
     )
 
-    results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    results = artest.artest.main(args)
     assert len(results) == 1
     assert results[0].fcid == hello2_id
     assert results[0].tcid == tcid
@@ -149,12 +157,14 @@ def test_custom_stringify_obj():
     )
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[hello3_id],
     more_files_to_clean=[f"{dirname}/hello3.py"],
     more_callbacks=[lambda: _message.clear()],
+    remove_modules=["hello3"],
 )
-def test_default_stringify_obj():
+def test_default_stringify_obj(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -174,7 +184,8 @@ def test_default_stringify_obj():
         f"{dirname}/hello.py.after2", f"{dirname}/hello3.py", hello3_id
     )
 
-    results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    results = artest.artest.main(args)
     assert len(results) == 1
     assert results[0].fcid == hello3_id
     assert results[0].tcid == tcid

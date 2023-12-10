@@ -2,6 +2,8 @@ import itertools
 import os
 import shutil
 
+import pytest
+
 import artest.artest
 from artest.config import set_test_case_id_generator
 from artest.types import StatusTestResult
@@ -20,11 +22,13 @@ def gen():
 dirname = os.path.dirname(__file__)
 
 
+@pytest.mark.parametrize("enable_fastreg", [False, True])
 @make_test_autoreg(
     fcid_list=[hello_id],
     more_files_to_clean=[f"{dirname}/hello.py"],
+    remove_modules=["hello"],
 )
-def test_refresh():
+def test_refresh(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -33,25 +37,27 @@ def test_refresh():
     shutil.copy(f"{dirname}/hello.py.before", f"{dirname}/hello.py")
     from .hello import hello  # noqa: E402
 
-    hello("Hello", "World")
+    assert hello("Hello", "World") == "Hello World!"
 
     assert_test_case_files_exist(hello_id, tcid)
 
     shutil.copy(f"{dirname}/hello.py.after", f"{dirname}/hello.py")
 
-    results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    results = artest.artest.main(args)
     assert len(results) == 1
     assert results[0].fcid == hello_id
     assert results[0].tcid == tcid
     assert results[0].status == StatusTestResult.FAIL
+    assert results[0].message == "Outputs not matched."
 
-    results = artest.artest.main(["--refresh"])
+    results = artest.artest.main(["--refresh"] + args)
     assert len(results) == 1
     assert results[0].fcid == hello_id
     assert results[0].tcid == tcid
     assert results[0].status == StatusTestResult.REFRESH
 
-    results = artest.artest.main()
+    results = artest.artest.main(args)
     assert len(results) == 1
     assert results[0].fcid == hello_id
     assert results[0].tcid == tcid

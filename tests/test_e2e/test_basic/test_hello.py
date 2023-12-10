@@ -2,6 +2,8 @@ import itertools
 import os
 import shutil
 
+import pytest
+
 import artest.artest
 from artest.config import set_test_case_id_generator
 from artest.types import StatusTestResult
@@ -20,11 +22,13 @@ def gen():
 dirname = os.path.dirname(__file__)
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[hello_id],
     more_files_to_clean=[f"{dirname}/hello.py"],
+    remove_modules=["hello"],
 )
-def test_change_should_fail():
+def test_change_should_fail(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -39,7 +43,8 @@ def test_change_should_fail():
 
     shutil.copy(f"{dirname}/hello.py.after", f"{dirname}/hello.py")
 
-    results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    results = artest.artest.main(args)
     assert len(results) == 1
     assert results[0].fcid == hello_id
     assert results[0].tcid == tcid
