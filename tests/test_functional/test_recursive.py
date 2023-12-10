@@ -1,15 +1,14 @@
 import itertools
 
+import pytest
+
 import artest.artest
 from artest import autoreg, autostub
 from artest.config import set_test_case_id_generator
 from artest.types import StatusTestResult
 from tests.helper import (
     assert_test_case_files_exist,
-    call_time_path,
     get_call_time,
-    make_cleanup_file,
-    make_cleanup_test_case_files,
     make_test_autoreg,
     set_call_time,
 )
@@ -49,13 +48,9 @@ def the_stub(x):
     return x**3 + x**2 - 5 * x + 1
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files(hello_id)
-@make_cleanup_test_case_files(hello1_id)
-@make_cleanup_file(call_time_path(hello_id))
-@make_cleanup_file(call_time_path(hello1_id))
-@make_cleanup_file(call_time_path(stub_id))
-def test_recursive():
+@pytest.mark.parametrize("enable_fastreg", [True, False])
+@make_test_autoreg(fcid_list=[hello_id, hello1_id, stub_id])
+def test_recursive(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -77,7 +72,8 @@ def test_recursive():
     set_call_time(hello_id, 0)
     set_call_time(stub_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 2
     assert {tr.fcid for tr in test_results} == {hello_id, hello1_id}
@@ -85,5 +81,7 @@ def test_recursive():
     assert {tr.status == StatusTestResult.SUCCESS for tr in test_results} == {True}
 
     assert get_call_time(hello_id) == 1  # directly called
-    assert get_call_time(hello1_id) == 2  # directly called + called once by hello
+    assert (
+        get_call_time(hello1_id) == 1 if enable_fastreg else 2
+    )  # directly called + called once by hello
     assert get_call_time(stub_id) == 0  # stubbed by artest, should not be called

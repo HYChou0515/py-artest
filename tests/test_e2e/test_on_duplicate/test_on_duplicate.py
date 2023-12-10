@@ -34,7 +34,7 @@ def test_reload_hello_when_default_on_duplicate_action_is_ignore_should_pass():
     importlib.reload(module)
 
 
-@make_test_autoreg(fcid_list=[hello_id])
+@make_test_autoreg(fcid_list=[hello_id], remove_modules=["hello"])
 def test_reload_hello_should_fail():
     # reload hello.py should fail because hello_id is already registered in autoreg
     from .hello import hello  # noqa: E402
@@ -47,7 +47,7 @@ def test_reload_hello_should_fail():
     )
 
 
-@make_test_autoreg(fcid_list=[dup_id])
+@make_test_autoreg(fcid_list=[dup_id], remove_modules=["dup"])
 def test_dup_should_fail():
     with pytest.raises(ValueError) as exec:
         from .dup import dup1
@@ -57,8 +57,9 @@ def test_dup_should_fail():
     assert exec.value.args[0] == f"Function {dup_id} is already registered in autoreg."
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(fcid_list=[dup_id])
-def test_dup1_when_dup_action_is_ignored():
+def test_dup1_when_dup_action_is_ignored(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -70,15 +71,17 @@ def test_dup1_when_dup_action_is_ignored():
 
     assert_test_case_files_exist(dup_id, tcid)
 
-    results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    results = artest.artest.main(args)
     assert len(results) == 1
     assert results[0].fcid == dup_id
     assert results[0].tcid == tcid
     assert results[0].status == StatusTestResult.SUCCESS
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(fcid_list=[dup_id])
-def test_dup2_when_dup_action_is_ignored():
+def test_dup2_when_dup_action_is_ignored(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -90,7 +93,8 @@ def test_dup2_when_dup_action_is_ignored():
 
     assert_test_case_files_exist(dup_id, tcid)
 
-    results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    results = artest.artest.main(args)
     assert len(results) == 1
     assert results[0].fcid == dup_id
     assert results[0].tcid == tcid

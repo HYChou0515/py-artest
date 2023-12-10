@@ -2,6 +2,8 @@ import io
 import itertools
 from functools import wraps
 
+import pytest
+
 import artest.artest
 from artest import autoreg, autostub
 from artest.config import set_test_case_id_generator
@@ -21,16 +23,16 @@ def gen():
         i += 1
 
 
-hello_id = "7ea1cadf5f034540949a3b5e2ac12865"
-stub_id = "6e435a4e5792483891074fb12af54672"
-staticmethod_id = "ccfd4bde183f43f589b8b8bb80bbdda4"
-static_caller_id = "80098e3731164b568032d333ae9ca04a"
-property_id = "0a3efd01af67495b89c63c43f17bdc63"
-decorator_id = "5cf078f0f42642c7a1a7c6283aa68c5b"
-decorator2_id = "2fa94dbc6f5d42198ecbb140e013caad"
-decorator3_id = "55a09978ce314120abb31506d89672db"
-decorator_and_property_id = "afb995a2a5054062aa2add3ec0b84abb"
-classmethod_id = "d9ee01b913694410aaa5c0a432199068"
+hello_id = "hello_id-7ea1cadf5f034540949a3b5e2ac12865"
+stub_id = "stub_id-6e435a4e5792483891074fb12af54672"
+staticmethod_id = "staticmethod_id-ccfd4bde183f43f589b8b8bb80bbdda4"
+static_caller_id = "static_caller_id-80098e3731164b568032d333ae9ca04a"
+property_id = "property_id-0a3efd01af67495b89c63c43f17bdc63"
+decorator_id = "decorator_id-5cf078f0f42642c7a1a7c6283aa68c5b"
+decorator2_id = "decorator2_id-2fa94dbc6f5d42198ecbb140e013caad"
+decorator3_id = "decorator3_id-55a09978ce314120abb31506d89672db"
+decorator_and_property_id = "decorator_and_property_id-afb995a2a5054062aa2add3ec0b84abb"
+classmethod_id = "classmethod_id-d9ee01b913694410aaa5c0a432199068"
 
 
 def custom_decorator(func):
@@ -132,10 +134,11 @@ class Hello:
         )
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[classmethod_id],
 )
-def test_class_class_method():
+def test_class_class_method(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -150,7 +153,8 @@ def test_class_class_method():
 
     set_call_time(classmethod_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 1
     assert test_results[0].fcid == classmethod_id
@@ -160,10 +164,11 @@ def test_class_class_method():
     assert get_call_time(classmethod_id) == 1  # directly called
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[decorator3_id, decorator2_id, decorator_and_property_id],
 )
-def test_class_decorator3():
+def test_class_decorator3(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -183,7 +188,8 @@ def test_class_decorator3():
     set_call_time(decorator2_id, 0)
     set_call_time(decorator_and_property_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 10
     counts_by_fcid = {tr.fcid: 0 for tr in test_results}
@@ -199,10 +205,11 @@ def test_class_decorator3():
     assert get_call_time(decorator3_id) == 3  # directly called
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[decorator2_id],
 )
-def test_class_decorator2():
+def test_class_decorator2(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -218,7 +225,8 @@ def test_class_decorator2():
 
     set_call_time(decorator2_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 1
     assert test_results[0].fcid == decorator2_id
@@ -228,10 +236,11 @@ def test_class_decorator2():
     assert get_call_time(decorator2_id) == 1  # directly called
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[decorator_and_property_id],
 )
-def test_class_decorator_and_property():
+def test_class_decorator_and_property(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -247,7 +256,8 @@ def test_class_decorator_and_property():
 
     set_call_time(decorator_and_property_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 1
     assert test_results[0].fcid == decorator_and_property_id
@@ -257,10 +267,11 @@ def test_class_decorator_and_property():
     assert get_call_time(decorator_and_property_id) == 1  # directly called
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[decorator_id],
 )
-def test_class_decorator():
+def test_class_decorator(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -276,7 +287,8 @@ def test_class_decorator():
 
     set_call_time(decorator_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 1
     assert test_results[0].fcid == decorator_id
@@ -286,10 +298,11 @@ def test_class_decorator():
     assert get_call_time(decorator_id) == 1  # directly called
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[property_id],
 )
-def test_class_property():
+def test_class_property(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -305,7 +318,8 @@ def test_class_property():
 
     set_call_time(property_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 1
     assert test_results[0].fcid == property_id
@@ -315,10 +329,11 @@ def test_class_property():
     assert get_call_time(property_id) == 1  # directly called
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[staticmethod_id, static_caller_id],
 )
-def test_class_staticmethod_call():
+def test_class_staticmethod_call(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -339,21 +354,25 @@ def test_class_staticmethod_call():
     set_call_time(static_caller_id, 0)
     set_call_time(staticmethod_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 2
     assert {tr.fcid for tr in test_results} == {staticmethod_id, static_caller_id}
     assert {tr.tcid for tr in test_results} == {tcid1, tcid2}
     assert {tr.status == StatusTestResult.SUCCESS for tr in test_results} == {True}
 
-    assert get_call_time(staticmethod_id) == 2  # directly called
+    assert (
+        get_call_time(staticmethod_id) == 1 if enable_fastreg else 2
+    )  # directly called
     assert get_call_time(static_caller_id) == 1  # directly called
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[staticmethod_id],
 )
-def test_class_staticmethod():
+def test_class_staticmethod(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -369,7 +388,8 @@ def test_class_staticmethod():
 
     set_call_time(staticmethod_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 1
     assert test_results[0].fcid == staticmethod_id
@@ -379,10 +399,11 @@ def test_class_staticmethod():
     assert get_call_time(staticmethod_id) == 1  # directly called
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[hello_id, stub_id],
 )
-def test_class():
+def test_class(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -401,7 +422,8 @@ def test_class():
     set_call_time(hello_id, 0)
     set_call_time(stub_id, 0)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 1
     assert test_results[0].fcid == hello_id

@@ -21,8 +21,7 @@ import shutil
 import sys
 import tempfile
 import warnings
-from collections import Counter
-from collections.abc import MutableMapping
+from collections import Counter, defaultdict
 from contextvars import ContextVar
 from functools import wraps
 from glob import glob
@@ -62,6 +61,7 @@ _overload_on_duplicate_var = ContextVar("__ARTEST_ON_DUPLICATE__", default=None)
 _fcid_var = ContextVar("__ARTEST_FCID__")
 _tcid_var = ContextVar("__ARTEST_TCID__")
 _artest_mode_var = ContextVar("__ARTEST_MODE__", default=ArtestMode.USE_ENV)
+_enable_fastreg_var = ContextVar("__ARTEST_ENABLE_FASTREG__", default=False)
 
 
 def _get_on_duplicate(on_duplicate: Optional[OnFuncIdDuplicateAction]):
@@ -163,13 +163,13 @@ def get_artest_decorators(target, *, target_is_source=False):
     return autoreg_funcs
 
 
-class _FunctionIdRepository(MutableMapping):
+class _FunctionIdRepository:
     """Repository for function IDs."""
 
     def __init__(self):
         self.store = dict()
 
-    def __getitem__(self, key):
+    def get_func(self, key):
         if key in self.store:
             return self.store[key]
 
@@ -237,18 +237,6 @@ class _FunctionIdRepository(MutableMapping):
             self.store[key] = func
         return self.store[key]
 
-    def __setitem__(self, key, value):
-        self.store[key] = value
-
-    def __delitem__(self, key):
-        del self.store[key]
-
-    def __iter__(self):
-        return iter(self.store)
-
-    def __len__(self):
-        return len(self.store)
-
 
 _func_id_repo = _FunctionIdRepository()
 
@@ -295,6 +283,36 @@ class _Paths:
             caller_fcid,
             tcid,
             os.path.join("stub", f"{stub_fcid}.{call_count}.{input_hash}.output"),
+        )
+
+    def fastreg(
+        self,
+        caller_fcid: str,
+        tcid: str,
+        reg_fcid: str,
+        call_count: int,
+        input_hash: str,
+    ):
+        return self._build_path(
+            caller_fcid,
+            tcid,
+            os.path.join("fastreg", f"{reg_fcid}.{call_count}.{input_hash}.output"),
+        )
+
+    def fastreg_stub_counter(
+        self,
+        caller_fcid: str,
+        tcid: str,
+        reg_fcid: str,
+        call_count: int,
+        input_hash: str,
+    ):
+        return self._build_path(
+            caller_fcid,
+            tcid,
+            os.path.join(
+                "fastreg", f"{reg_fcid}.{call_count}.{input_hash}.stub_counter"
+            ),
         )
 
 
@@ -510,7 +528,7 @@ class _TestCaseSerializer:
         """
         assert path.endswith("/func")
         _, tcid, fcid, *_ = path.split("/")[::-1]
-        func = _func_id_repo[fcid]
+        func = _func_id_repo.get_func(fcid)
         return func
 
     def calc_hash(self, obj):
@@ -564,6 +582,9 @@ def _find_input_hash(func, args, kwargs):
             del arguments["self"]
     input_hash = _serializer.calc_hash(arguments)
     return input_hash
+
+
+_fastreg_counter = {}
 
 
 def autoreg(
@@ -635,34 +656,141 @@ def autoreg(
                 return disable_mode(*args, **kwargs)
             tcid = next(get_test_case_id_generator())
             _test_stack.append((func_id, tcid))
-            f_inputs = _paths.inputs(func_id, tcid)
-            f_outputs = _paths.outputs(func_id, tcid)
-            f_func = _paths.func(func_id, tcid)
 
+            # save fastreg output to save time
+            # _test_stack[-1] is this function
+            # _test_stack[-2] is the caller
+            if len(_test_stack) <= 1:
+                # this is the top level function
+                caller_fcid_tcid = None
+            elif _test_stack[-2] is None:
+                # this is a stub, no need to save
+                caller_fcid_tcid = None
+            else:
+                caller_fcid_tcid = _test_stack[-2]
             try:
-                _serializer.save_inputs((args, kwargs), f_inputs)
-                _serializer.save_func((func_id, tcid), f_func)
+                f_inputs = _paths.inputs(func_id, tcid)
+                f_outputs = _paths.outputs(func_id, tcid)
+                f_func = _paths.func(func_id, tcid)
 
-                output = _get_func_output(func, args, kwargs)
-                _serializer.save(output, f_outputs)
-            except Exception as e:
-                # remove the test case if there is an error
-                shutil.rmtree(_paths.root(func_id, tcid), ignore_errors=True)
-                raise e
+                try:
+                    _serializer.save_inputs((args, kwargs), f_inputs)
+                    _serializer.save_func((func_id, tcid), f_func)
 
-            tc_meta = _meta_handler.build_meta(func_id, tcid)
-            _meta_handler.add_test_case_meta(tc_meta)
+                    if caller_fcid_tcid is not None:
+                        counter_before_call = _stub_counter[caller_fcid_tcid].copy()
+                    else:
+                        counter_before_call = {}
+                    output = _get_func_output(func, args, kwargs)
+                    _serializer.save(output, f_outputs)
 
-            if get_assert_pickled_object_on_case_mode():
-                output_saved = _serializer.read(f_outputs)
-                assert get_is_equal()(output, output_saved)
-            _test_stack.pop()
+                    if caller_fcid_tcid is not None:
+                        caller_fcid, caller_tcid = caller_fcid_tcid
+                        counter_after_call = _stub_counter[caller_fcid, caller_tcid]
+                        counter_delta = {}
+                        for stub_fcid, stub_call_count in counter_after_call.items():
+                            delta = stub_call_count - counter_before_call.get(
+                                stub_fcid, 0
+                            )
+                            if delta < 0:
+                                raise ValueError("Stub counter decreased.")
+                            counter_delta[stub_fcid] = delta
+
+                        call_count = _fastreg_counter.get(
+                            (func_id, caller_fcid, caller_tcid), 0
+                        )
+                        _fastreg_counter[(func_id, caller_fcid, caller_tcid)] = (
+                            call_count + 1
+                        )
+                        _serializer.save(
+                            output,
+                            _paths.fastreg(
+                                caller_fcid,
+                                caller_tcid,
+                                func_id,
+                                call_count,
+                                _find_input_hash(func, args, kwargs),
+                            ),
+                        )
+                        _serializer.save(
+                            counter_delta,
+                            _paths.fastreg_stub_counter(
+                                caller_fcid,
+                                caller_tcid,
+                                func_id,
+                                call_count,
+                                _find_input_hash(func, args, kwargs),
+                            ),
+                        )
+                except Exception as e:
+                    # remove the test case if there is an error
+                    shutil.rmtree(_paths.root(func_id, tcid), ignore_errors=True)
+                    raise e
+
+                tc_meta = _meta_handler.build_meta(func_id, tcid)
+                _meta_handler.add_test_case_meta(tc_meta)
+
+                if get_assert_pickled_object_on_case_mode():
+                    output_saved = _serializer.read(f_outputs)
+                    assert get_is_equal()(output, output_saved)
+            finally:
+                _test_stack.pop()
             if output.output_type == FunctionOutputType.RAISE:
                 raise output.output
             return output.output
 
         def test_mode(*args, **kwargs):
-            return func(*args, **kwargs)
+            tcid = _tcid_var.get()
+            _fcid_var.get()
+            _test_stack.append((func_id, tcid))
+            try:
+                if len(_test_stack) <= 1:
+                    # this is the top level function
+                    caller_fcid_tcid = None
+                elif _test_stack[-2] is None:
+                    # this is a stub, no need to save
+                    caller_fcid_tcid = None
+                else:
+                    caller_fcid_tcid = _test_stack[-2]
+                if caller_fcid_tcid is not None and _enable_fastreg_var.get():
+                    caller_fcid, _ = caller_fcid_tcid
+                    # load fastreg output to save time
+                    call_count = _fastreg_counter.get((func_id, caller_fcid, tcid), 0)
+                    _fastreg_counter[(func_id, caller_fcid, tcid)] = call_count + 1
+
+                    input_hash = _find_input_hash(func, args, kwargs)
+
+                    stub_counter_path = _paths.fastreg_stub_counter(
+                        caller_fcid,
+                        tcid,
+                        func_id,
+                        call_count,
+                        input_hash,
+                    )
+                    if os.path.exists(stub_counter_path):
+                        delta_stub_counter: dict = _serializer.read(stub_counter_path)
+                        for stub_fcid, stub_call_count in delta_stub_counter.items():
+                            if stub_fcid not in _stub_counter[caller_fcid, tcid]:
+                                _stub_counter[caller_fcid, tcid][stub_fcid] = 0
+                            _stub_counter[caller_fcid, tcid][
+                                stub_fcid
+                            ] += stub_call_count
+                    output_path = _paths.fastreg(
+                        caller_fcid,
+                        tcid,
+                        func_id,
+                        call_count,
+                        input_hash,
+                    )
+
+                    if os.path.exists(output_path):
+                        output: FunctionOutput = _serializer.read(output_path)
+                        if output.output_type == FunctionOutputType.RAISE:
+                            raise output.output
+                        return output.output
+                return func(*args, **kwargs)
+            finally:
+                _test_stack.pop()
 
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -680,7 +808,7 @@ def autoreg(
     return _autoreg
 
 
-_stub_counter = {}
+_stub_counter = defaultdict(dict)
 
 
 def autostub(
@@ -727,14 +855,16 @@ def autostub(
                 # before and after running the function
                 input_hash = _find_input_hash(func, args, kwargs)
             _test_stack.append(None)
-            output = _get_func_output(func, args, kwargs)
-            _test_stack.pop()
+            try:
+                output = _get_func_output(func, args, kwargs)
+            finally:
+                _test_stack.pop()
             for stack_item in _test_stack[::-1]:  # start from latest caller
                 if stack_item is None:
                     break
                 caller_fcid, tcid = stack_item
-                call_count = _stub_counter.get((func_id, caller_fcid, tcid), 0)
-                _stub_counter[(func_id, caller_fcid, tcid)] = call_count + 1
+                call_count = _stub_counter[caller_fcid, tcid].get(func_id, 0)
+                _stub_counter[caller_fcid, tcid][func_id] = call_count + 1
                 _serializer.save(
                     output,
                     _paths.stub(
@@ -754,8 +884,8 @@ def autostub(
             caller_fcid = _fcid_var.get()
             tcid = _tcid_var.get()
 
-            call_count = _stub_counter.get((func_id, caller_fcid, tcid), 0)
-            _stub_counter[(func_id, caller_fcid, tcid)] = call_count + 1
+            call_count = _stub_counter[caller_fcid, tcid].get(func_id, 0)
+            _stub_counter[caller_fcid, tcid][func_id] = call_count + 1
 
             input_hash = _find_input_hash(func, args, kwargs)
             path = _paths.stub(
@@ -843,7 +973,9 @@ class _TestRunner:
     def actual_outputs(self):
         if self._actual_outputs is not None:
             return self._actual_outputs
+        token = _enable_fastreg_var.set(self.artest_config.enable_fastreg)
         self._actual_outputs = _get_func_output(self.func, *self.inputs)
+        _enable_fastreg_var.reset(token)
         return self._actual_outputs
 
     @property
@@ -863,8 +995,15 @@ class _TestRunner:
     def compared_outputs(self):
         if self._compared_outputs is not None:
             return self._compared_outputs
-        args, kwargs = self.inputs
+
+        # the order must be preserved as func then inputs
+        # or there will be a pickle error when calculating input hash.
+        # PicklingError("Can't pickle <class 'ContextVar'>: it's not found as builtins.ContextVar")
+        # The reason is unknown.
+        # But it may be related to the fact that func is using _func_id_repo, a global variable.
         func = self.func
+        args, kwargs = self.inputs
+
         if self.actual_outputs.output_type != self.expected_outputs.output_type:
             self._compared_outputs = self.info_test_result(
                 StatusTestResult.FAIL,
@@ -971,6 +1110,7 @@ def _gather_test_results(artest_config: ArtestConfig) -> list[TestResult]:
 
 def _run_artest(artest_config: ArtestConfig):
     _stub_counter.clear()
+    _fastreg_counter.clear()
     artest_mode_reset_token = _artest_mode_var.set(ArtestMode.TEST)
     try:
         test_results = _gather_test_results(artest_config)
@@ -1020,6 +1160,7 @@ def main(args=None):
     parser.add_argument("--include-test-case", nargs="+", action="extend")
     parser.add_argument("--exclude-function", nargs="+", action="extend")
     parser.add_argument("--exclude-test-case", nargs="+", action="extend")
+    parser.add_argument("--enable-fastreg", action="store_true")
 
     if args is None:
         args = []
@@ -1031,6 +1172,7 @@ def main(args=None):
         include_test_case=args.include_test_case,
         exclude_function=args.exclude_function,
         exclude_test_case=args.exclude_test_case,
+        enable_fastreg=args.enable_fastreg,
     )
     return _run_artest(artest_config)
 

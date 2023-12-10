@@ -1,14 +1,12 @@
 import itertools
 
+import pytest
+
 import artest.artest
 from artest import autoreg, autostub
 from artest.config import set_test_case_id_generator
 from artest.types import OnFuncIdDuplicateAction, StatusTestResult
-from tests.helper import (
-    assert_test_case_files_exist,
-    make_cleanup_test_case_files,
-    make_test_autoreg,
-)
+from tests.helper import assert_test_case_files_exist, make_test_autoreg
 
 
 def gen():
@@ -36,11 +34,9 @@ def reg1():
     return "reg1"
 
 
-@make_test_autoreg()
-@make_cleanup_test_case_files("reg1")
-@make_cleanup_test_case_files("stub1")
-@make_cleanup_test_case_files("stub2")
-def test_stub_counter():
+@pytest.mark.parametrize("enable_fastreg", [True, False])
+@make_test_autoreg(fcid_list=["reg1", "stub1", "stub2"])
+def test_stub_counter(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -50,7 +46,8 @@ def test_stub_counter():
 
     assert_test_case_files_exist("reg1", tcid)
 
-    test_results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    test_results = artest.artest.main(args)
 
     assert len(test_results) == 1
     assert test_results[0].fcid == "reg1"

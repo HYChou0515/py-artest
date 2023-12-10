@@ -10,12 +10,15 @@ Functions and Classes:
     - environ(target, value): Context manager to temporarily set environment variables.
     - make_test_autoreg(): Decorator factory to set the test mode for automatic regression tests.
 """
+import importlib
 import os
 import pickle
 import shutil
+import sys
 from contextlib import contextmanager
 from functools import wraps
 
+import artest
 from artest.artest import _meta_handler
 from artest.config import (
     reset_all_test_case_quota,
@@ -161,7 +164,13 @@ def environ(target, value):
             os.environ[target] = original
 
 
-def make_test_autoreg(*, fcid_list=None, more_files_to_clean=None, more_callbacks=None):
+def make_test_autoreg(
+    *,
+    fcid_list=None,
+    more_files_to_clean=None,
+    more_callbacks=None,
+    remove_modules=None,
+):
     """Decorator factory to set the test mode for automatic regression tests.
 
     Returns:
@@ -172,23 +181,48 @@ def make_test_autoreg(*, fcid_list=None, more_files_to_clean=None, more_callback
         @wraps(func)
         def wrapper(*args, **kwargs):
             with environ("ARTEST_MODE", ArtestMode.CASE.value):
-                _func = func
-                for fcid in fcid_list or []:
-                    _func = make_cleanup_test_case_files(fcid)(_func)
-                    _func = make_cleanup_file(call_time_path(fcid))(_func)
-                for filepath in more_files_to_clean or []:
-                    _func = make_cleanup_file(filepath)(_func)
-                for callback in more_callbacks or []:
-                    _func = make_callback(callback)(_func)
-                _func = make_callback(set_test_case_id_generator)(_func)
-                _func = make_callback(set_on_func_id_duplicate)(_func)
-                _func = make_callback(set_is_equal)(_func)
-                _func = make_callback(set_message_formatter)(_func)
-                _func = make_callback(set_printer)(_func)
-                _func = make_callback(set_stringify_obj)(_func)
-                _func = make_callback(reset_all_test_case_quota)(_func)
-                _func = make_callback(_meta_handler.remove)(_func)
-                _func(*args, **kwargs)
+                for mod in remove_modules or []:
+                    # [k for k in sys.modules.keys() if k.endswith(f".hello")]
+                    del_modules = [
+                        k for k in sys.modules.keys() if k.endswith(f".{mod}")
+                    ]
+                    for dm in del_modules:
+                        del sys.modules[dm]
+                try:
+                    func(*args, **kwargs)
+                except Exception as e:
+                    raise e
+                finally:
+                    for mod in remove_modules or []:
+                        del_modules = [
+                            k for k in sys.modules.keys() if k.endswith(f".{mod}")
+                        ]
+                        for dm in del_modules:
+                            del sys.modules[dm]
+                    for fcid in fcid_list or []:
+                        cleanup_test_case_files(fcid)
+                        if os.path.exists(call_time_path(fcid)):
+                            os.remove(call_time_path(fcid))
+
+                    for filepath in more_files_to_clean or []:
+                        if os.path.exists(filepath):
+                            os.remove(filepath)
+
+                    for callback in more_callbacks or []:
+                        try:
+                            callback()
+                        finally:
+                            pass
+                    set_test_case_id_generator()
+                    set_on_func_id_duplicate()
+                    set_is_equal()
+                    set_message_formatter()
+                    set_printer()
+                    set_stringify_obj()
+                    reset_all_test_case_quota()
+                    _meta_handler.remove()
+                    importlib.reload(artest.config)
+                    importlib.reload(artest.artest)
 
         return wrapper
 

@@ -2,6 +2,8 @@ import itertools
 import os
 import shutil
 
+import pytest
+
 import artest.artest
 from artest.config import set_is_equal, set_test_case_id_generator
 from artest.types import StatusTestResult
@@ -25,11 +27,13 @@ def custom_is_equal(a, b):
         return a.startswith(b) or b.startswith(a)
 
 
+@pytest.mark.parametrize("enable_fastreg", [True, False])
 @make_test_autoreg(
     fcid_list=[hello_id],
     more_files_to_clean=[f"{dirname}/hello.py"],
+    remove_modules=["hello"],
 )
-def test_custom_equal():
+def test_custom_equal(enable_fastreg):
     gen1, gen2 = itertools.tee(gen(), 2)
     set_test_case_id_generator(gen1)
 
@@ -45,7 +49,8 @@ def test_custom_equal():
 
     shutil.copy(f"{dirname}/hello.py.after", f"{dirname}/hello.py")
 
-    results = artest.artest.main()
+    args = ["--enable-fastreg"] if enable_fastreg else []
+    results = artest.artest.main(args)
     assert len(results) == 1
     assert results[0].fcid == hello_id
     assert results[0].tcid == tcid
